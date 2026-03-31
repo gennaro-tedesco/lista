@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app/themes.dart';
 import '../../models/shopping_list.dart';
 import '../create_list/create_list_page.dart';
+import '../settings/settings_page.dart';
 import '../view_list/shopping_list_view_page.dart';
 
 class ShoppingListsHomePage extends StatefulWidget {
@@ -13,9 +14,14 @@ class ShoppingListsHomePage extends StatefulWidget {
 
 class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
+  int? _draggingListIndex;
+  int? _listDropIndex;
 
-  List<ShoppingList> get _sortedLists =>
-      [..._lists]..sort((a, b) => b.date.compareTo(a.date));
+  List<ShoppingList> get _activeLists =>
+      _lists.where((list) => !list.isCompleted).toList();
+
+  List<ShoppingList> get _completedLists =>
+      _lists.where((list) => list.isCompleted).toList();
 
   Future<void> _openCreateList() async {
     final result = await Navigator.push<ShoppingList>(
@@ -27,6 +33,129 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     }
   }
 
+  void _reorderLists(int oldIndex, int newIndex) {
+    setState(() {
+      final activeLists = _activeLists;
+      final list = activeLists[oldIndex];
+      final oldListIndex = _lists.indexOf(list);
+      _lists.removeAt(oldListIndex);
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      if (newIndex >= activeLists.length) {
+        final firstCompletedIndex =
+            _lists.indexWhere((item) => item.isCompleted);
+        if (firstCompletedIndex == -1) {
+          _lists.add(list);
+        } else {
+          _lists.insert(firstCompletedIndex, list);
+        }
+      } else {
+        final targetList = activeLists[newIndex];
+        final targetListIndex = _lists.indexOf(targetList);
+        _lists.insert(targetListIndex, list);
+      }
+      _draggingListIndex = null;
+      _listDropIndex = null;
+    });
+  }
+
+  Widget _buildListDropZone(int index) {
+    final isActive = _listDropIndex == index;
+    return DragTarget<int>(
+      onWillAccept: (data) {
+        if (data == null || data == index) {
+          return false;
+        }
+        setState(() {
+          _listDropIndex = index;
+        });
+        return true;
+      },
+      onLeave: (_) {
+        if (_listDropIndex == index) {
+          setState(() {
+            _listDropIndex = null;
+          });
+        }
+      },
+      onAcceptWithDetails: (details) {
+        _reorderLists(details.data, index);
+      },
+      builder: (context, candidateData, rejectedData) => AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: isActive ? 20 : 8,
+      ),
+    );
+  }
+
+  Widget _buildListCard(BuildContext context, ShoppingList list) {
+    final theme = Theme.of(context);
+    final checked = list.items.where((it) => it.isChecked).length;
+    final total = list.items.length;
+    final showPrice = list.isCompleted && list.totalPrice != null;
+    final currencySymbol = list.currencySymbol;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () => _viewList(list),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      list.title ?? 'Shopping List',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: list.isCompleted
+                            ? theme.colorScheme.onSurfaceVariant
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(list.date),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    if (total > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$checked / $total items',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: checked == total
+                              ? theme.colorScheme.primary
+                              : null,
+                        ),
+                      ),
+                    ],
+                    if (list.totalPrice != null && !showPrice) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$currencySymbol${list.totalPrice!}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (showPrice)
+                Text(
+                  '$currencySymbol${list.totalPrice!}',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _viewList(ShoppingList list) async {
     await Navigator.push(
       context,
@@ -35,82 +164,44 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {});
   }
 
-  Future<void> _editListName(ShoppingList list) async {
-    final controller = TextEditingController(text: list.title ?? '');
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('List name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'List title (optional)'),
-          onSubmitted: (v) => Navigator.pop(ctx, v),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+  Future<void> _openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
     );
-    controller.dispose();
-    if (result != null) {
-      setState(() {
-        list.title = result.trim().isEmpty ? null : result.trim();
-      });
-    }
+    setState(() {});
   }
 
-  void _showThemePicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => ValueListenableBuilder<AppThemeOption>(
-        valueListenable: themeNotifier,
-        builder: (context, current, child) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Theme',
-                  style: Theme.of(ctx).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            ...AppThemeOption.values.map(
-              (option) => ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: option.swatch,
-                  radius: 10,
-                ),
-                title: Text(option.label),
-                trailing: current == option
-                    ? Icon(
-                        Icons.check_circle,
-                        color: Theme.of(ctx).colorScheme.primary,
-                        size: 20,
-                      )
-                    : null,
-                onTap: () {
-                  themeNotifier.value = option;
-                  Navigator.pop(ctx);
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
+  void _deleteList(ShoppingList list) {
+    setState(() {
+      _lists.remove(list);
+    });
+  }
+
+  void _toggleCompleted(ShoppingList list) {
+    setState(() {
+      list.isCompleted = !list.isCompleted;
+    });
+  }
+
+  Future<bool> _handleActiveListSwipe(
+      DismissDirection direction, ShoppingList list) async {
+    if (direction == DismissDirection.startToEnd) {
+      _toggleCompleted(list);
+    } else {
+      _deleteList(list);
+    }
+    return false;
+  }
+
+  Future<bool> _handleCompletedListSwipe(
+      DismissDirection direction, ShoppingList list) async {
+    if (direction == DismissDirection.startToEnd) {
+      _toggleCompleted(list);
+    } else {
+      _deleteList(list);
+    }
+    return false;
   }
 
   String _formatDate(DateTime date) {
@@ -124,21 +215,91 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sorted = _sortedLists;
+    final completedSection = _completedLists.isEmpty
+        ? const SizedBox.shrink()
+        : SafeArea(
+            top: false,
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.45,
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      'Completed',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      reverse: true,
+                      children: _completedLists
+                          .map(
+                            (list) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Dismissible(
+                                key: ValueKey('completed-${list.id}'),
+                                background: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondary,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Icon(
+                                    Icons.undo,
+                                    color: theme.colorScheme.onPrimary,
+                                  ),
+                                ),
+                                secondaryBackground: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Icon(
+                                    Icons.delete,
+                                    color: theme.colorScheme.onError,
+                                  ),
+                                ),
+                                confirmDismiss: (direction) =>
+                                    _handleCompletedListSwipe(direction, list),
+                                child: _buildListCard(context, list),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lista'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.palette_outlined),
-            onPressed: _showThemePicker,
-            tooltip: 'Theme',
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: _openSettings,
           ),
           const SizedBox(width: 4),
         ],
       ),
-      body: sorted.isEmpty
+      body: _lists.isEmpty
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -164,61 +325,88 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ],
               ),
             )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-              itemCount: sorted.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final list = sorted[i];
-                final checked =
-                    list.items.where((it) => it.isChecked).length;
-                final total = list.items.length;
-                return Card(
-                  child: InkWell(
-                    onTap: () => _viewList(list),
-                    onLongPress: () => _editListName(list),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  list.title ?? 'Shopping List',
-                                  style: theme.textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatDate(list.date),
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                if (total > 0) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '$checked / $total items',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: checked == total
-                                          ? theme.colorScheme.primary
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              ],
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      12,
+                      16,
+                      _completedLists.isEmpty ? 96 : 16,
+                    ),
+                    children: [
+                      for (var i = 0; i < _activeLists.length; i++) ...[
+                        _buildListDropZone(i),
+                        LongPressDraggable<int>(
+                          data: i,
+                          onDragStarted: () {
+                            setState(() {
+                              _draggingListIndex = i;
+                            });
+                          },
+                          onDragEnd: (_) {
+                            setState(() {
+                              _draggingListIndex = null;
+                              _listDropIndex = null;
+                            });
+                          },
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: SizedBox(
+                              width: MediaQuery.of(context).size.width - 32,
+                              child: _buildListCard(context, _activeLists[i]),
                             ),
                           ),
-                          Icon(
-                            Icons.chevron_right,
-                            color: theme.colorScheme.onSurfaceVariant,
+                          childWhenDragging: Opacity(
+                            opacity: 0.2,
+                            child: _buildListCard(context, _activeLists[i]),
                           ),
-                        ],
-                      ),
-                    ),
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 120),
+                            opacity: _draggingListIndex == i ? 0.9 : 1,
+                            child: Dismissible(
+                              key: ValueKey(_activeLists[i].id),
+                              background: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                alignment: Alignment.centerLeft,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: Icon(
+                                  Icons.check,
+                                  color: theme.colorScheme.onPrimary,
+                                ),
+                              ),
+                              secondaryBackground: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.error,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: Icon(
+                                  Icons.delete,
+                                  color: theme.colorScheme.onError,
+                                ),
+                              ),
+                              confirmDismiss: (direction) =>
+                                  _handleActiveListSwipe(
+                                      direction, _activeLists[i]),
+                              child: _buildListCard(context, _activeLists[i]),
+                            ),
+                          ),
+                        ),
+                      ],
+                      _buildListDropZone(_activeLists.length),
+                    ],
                   ),
-                );
-              },
+                ),
+                completedSection,
+              ],
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openCreateList,

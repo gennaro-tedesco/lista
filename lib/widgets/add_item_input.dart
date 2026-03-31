@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AddItemInput extends StatelessWidget {
-  final TextEditingController controller;
+  final TextEditingController itemController;
+  final TextEditingController quantityController;
   final ValueChanged<String> onChanged;
   final VoidCallback onSubmit;
 
   const AddItemInput({
     super.key,
-    required this.controller,
+    required this.itemController,
+    required this.quantityController,
     required this.onChanged,
     required this.onSubmit,
   });
@@ -18,12 +20,24 @@ class AddItemInput extends StatelessWidget {
       children: [
         Expanded(
           child: TextField(
-            controller: controller,
+            controller: itemController,
             onChanged: onChanged,
             onSubmitted: (_) => onSubmit(),
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(
               hintText: 'Add an item',
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 108,
+          child: TextField(
+            controller: quantityController,
+            onSubmitted: (_) => onSubmit(),
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              hintText: 'Qty',
             ),
           ),
         ),

@@ -1,46 +1,49 @@
 import 'package:flutter/material.dart';
 
 final themeNotifier = ValueNotifier<AppThemeOption>(AppThemeOption.catppuccinMocha);
+final uiFontScaleNotifier = ValueNotifier<double>(1.0);
 
 enum AppThemeOption {
+  none,
   catppuccinMocha,
   catppuccinLatte,
   tokyoNight,
   everforestDark,
   solarizedDark,
   solarizedLight,
-  dracula,
 }
 
 extension AppThemeOptionExt on AppThemeOption {
   String get label => switch (this) {
+        AppThemeOption.none => 'None',
         AppThemeOption.catppuccinMocha => 'Catppuccin Mocha',
         AppThemeOption.catppuccinLatte => 'Catppuccin Latte',
         AppThemeOption.tokyoNight => 'Tokyo Night',
         AppThemeOption.everforestDark => 'Everforest Dark',
         AppThemeOption.solarizedDark => 'Solarized Dark',
         AppThemeOption.solarizedLight => 'Solarized Light',
-        AppThemeOption.dracula => 'Dracula',
       };
 
   Color get swatch => switch (this) {
+        AppThemeOption.none => const Color(0xFF9E9E9E),
         AppThemeOption.catppuccinMocha => const Color(0xFFCBA6F7),
         AppThemeOption.catppuccinLatte => const Color(0xFF8839EF),
         AppThemeOption.tokyoNight => const Color(0xFF7AA2F7),
         AppThemeOption.everforestDark => const Color(0xFFA7C080),
         AppThemeOption.solarizedDark => const Color(0xFF268BD2),
         AppThemeOption.solarizedLight => const Color(0xFF268BD2),
-        AppThemeOption.dracula => const Color(0xFFBD93F9),
       };
 
-  ThemeData get themeData => AppThemes.get(this);
+  ThemeData get themeData => AppThemes.get(this, fontScale: uiFontScaleNotifier.value);
 }
 
 class AppThemes {
   AppThemes._();
 
-  static ThemeData get(AppThemeOption option) => switch (option) {
+  static ThemeData get(AppThemeOption option, {double fontScale = 1.0}) => switch (option) {
+        AppThemeOption.none => _systemTheme(Brightness.light, fontScale),
         AppThemeOption.catppuccinMocha => _build(
+            fontScale: fontScale,
             brightness: Brightness.dark,
             background: const Color(0xFF1E1E2E),
             surface: const Color(0xFF313244),
@@ -54,6 +57,7 @@ class AppThemes {
             outline: const Color(0xFF585B70),
           ),
         AppThemeOption.catppuccinLatte => _build(
+            fontScale: fontScale,
             brightness: Brightness.light,
             background: const Color(0xFFEFF1F5),
             surface: const Color(0xFFCCD0DA),
@@ -67,6 +71,7 @@ class AppThemes {
             outline: const Color(0xFFACB0BE),
           ),
         AppThemeOption.tokyoNight => _build(
+            fontScale: fontScale,
             brightness: Brightness.dark,
             background: const Color(0xFF1A1B26),
             surface: const Color(0xFF24283B),
@@ -80,6 +85,7 @@ class AppThemes {
             outline: const Color(0xFF3B4261),
           ),
         AppThemeOption.everforestDark => _build(
+            fontScale: fontScale,
             brightness: Brightness.dark,
             background: const Color(0xFF2D353B),
             surface: const Color(0xFF343F44),
@@ -93,6 +99,7 @@ class AppThemes {
             outline: const Color(0xFF4F5B58),
           ),
         AppThemeOption.solarizedDark => _build(
+            fontScale: fontScale,
             brightness: Brightness.dark,
             background: const Color(0xFF002B36),
             surface: const Color(0xFF073642),
@@ -106,6 +113,7 @@ class AppThemes {
             outline: const Color(0xFF184C52),
           ),
         AppThemeOption.solarizedLight => _build(
+            fontScale: fontScale,
             brightness: Brightness.light,
             background: const Color(0xFFFDF6E3),
             surface: const Color(0xFFEEE8D5),
@@ -118,22 +126,69 @@ class AppThemes {
             error: const Color(0xFFDC322F),
             outline: const Color(0xFFD0C9B6),
           ),
-        AppThemeOption.dracula => _build(
-            brightness: Brightness.dark,
-            background: const Color(0xFF282A36),
-            surface: const Color(0xFF343746),
-            surfaceContainer: const Color(0xFF44475A),
-            primary: const Color(0xFFBD93F9),
-            onPrimary: const Color(0xFF282A36),
-            secondary: const Color(0xFF50FA7B),
-            text: const Color(0xFFF8F8F2),
-            subtext: const Color(0xFF6272A4),
-            error: const Color(0xFFFF5555),
-            outline: const Color(0xFF44475A),
-          ),
       };
 
+  static ThemeData systemLight({double fontScale = 1.0}) =>
+      _systemTheme(Brightness.light, fontScale);
+
+  static ThemeData systemDark({double fontScale = 1.0}) =>
+      _systemTheme(Brightness.dark, fontScale);
+
+  static ThemeData _systemTheme(Brightness brightness, double fontScale) {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+    );
+    final textTheme = base.textTheme.apply(
+      fontSizeFactor: fontScale,
+    );
+    return base.copyWith(
+      textTheme: textTheme,
+      primaryTextTheme: base.primaryTextTheme.apply(
+        fontSizeFactor: fontScale,
+      ),
+      appBarTheme: base.appBarTheme.copyWith(
+        titleTextStyle: (base.appBarTheme.titleTextStyle ?? base.textTheme.titleLarge)
+            ?.copyWith(
+          fontSize: ((base.appBarTheme.titleTextStyle ?? base.textTheme.titleLarge)
+                      ?.fontSize ??
+                  20) *
+              fontScale,
+        ),
+      ),
+      inputDecorationTheme: (base.inputDecorationTheme).copyWith(
+        hintStyle: (base.inputDecorationTheme.hintStyle ?? const TextStyle(fontSize: 16))
+            .copyWith(
+          fontSize:
+              ((base.inputDecorationTheme.hintStyle?.fontSize ?? 16) * fontScale),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          textStyle: (base.textTheme.labelLarge ?? const TextStyle(fontSize: 14))
+              .copyWith(
+            fontSize: ((base.textTheme.labelLarge?.fontSize ?? 14) * fontScale),
+          ),
+        ),
+      ),
+      dialogTheme: base.dialogTheme.copyWith(
+        titleTextStyle: (base.dialogTheme.titleTextStyle ?? base.textTheme.titleLarge)
+            ?.copyWith(
+          fontSize:
+              ((base.dialogTheme.titleTextStyle?.fontSize ?? 22) * fontScale),
+        ),
+        contentTextStyle:
+            (base.dialogTheme.contentTextStyle ?? base.textTheme.bodyMedium)
+                ?.copyWith(
+          fontSize:
+              ((base.dialogTheme.contentTextStyle?.fontSize ?? 14) * fontScale),
+        ),
+      ),
+    );
+  }
+
   static ThemeData _build({
+    required double fontScale,
     required Brightness brightness,
     required Color background,
     required Color surface,
@@ -182,7 +237,7 @@ class AppThemes {
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: text,
-          fontSize: 22,
+          fontSize: 22 * fontScale,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
         ),
@@ -214,7 +269,7 @@ class AppThemes {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: primary, width: 1.5),
         ),
-        hintStyle: TextStyle(color: subtext, fontSize: 15),
+        hintStyle: TextStyle(color: subtext, fontSize: 15 * fontScale),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
@@ -242,8 +297,10 @@ class AppThemes {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primary,
-          textStyle:
-              const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          textStyle: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15 * fontScale,
+          ),
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
@@ -257,10 +314,10 @@ class AppThemes {
         ),
         titleTextStyle: TextStyle(
           color: text,
-          fontSize: 18,
+          fontSize: 18 * fontScale,
           fontWeight: FontWeight.w600,
         ),
-        contentTextStyle: TextStyle(color: subtext, fontSize: 14),
+        contentTextStyle: TextStyle(color: subtext, fontSize: 14 * fontScale),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surface,
@@ -269,23 +326,27 @@ class AppThemes {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       textTheme: TextTheme(
         headlineMedium: TextStyle(
-            color: text, fontSize: 28, fontWeight: FontWeight.w700),
+            color: text, fontSize: 28 * fontScale, fontWeight: FontWeight.w700),
         titleLarge: TextStyle(
             color: text,
-            fontSize: 20,
+            fontSize: 20 * fontScale,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.3),
         titleMedium: TextStyle(
-            color: text, fontSize: 16, fontWeight: FontWeight.w600),
+            color: text, fontSize: 16 * fontScale, fontWeight: FontWeight.w600),
         titleSmall: TextStyle(
-            color: subtext, fontSize: 14, fontWeight: FontWeight.w500),
-        bodyLarge: TextStyle(color: text, fontSize: 16),
-        bodyMedium: TextStyle(color: text, fontSize: 14),
-        bodySmall: TextStyle(color: subtext, fontSize: 12),
+            color: subtext, fontSize: 14 * fontScale, fontWeight: FontWeight.w500),
+        bodyLarge: TextStyle(color: text, fontSize: 16 * fontScale),
+        bodyMedium: TextStyle(color: text, fontSize: 14 * fontScale),
+        bodySmall: TextStyle(color: subtext, fontSize: 12 * fontScale),
         labelLarge: TextStyle(
-            color: text, fontSize: 14, fontWeight: FontWeight.w500),
+            color: text, fontSize: 14 * fontScale, fontWeight: FontWeight.w500),
       ),
     );
   }

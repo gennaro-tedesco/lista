@@ -11,11 +11,15 @@ class ListaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AppThemeOption>(
-      valueListenable: themeNotifier,
-      builder: (context, option, child) => MaterialApp(
+    return AnimatedBuilder(
+      animation: Listenable.merge([themeNotifier, uiFontScaleNotifier]),
+      builder: (context, child) => MaterialApp(
         title: 'Lista',
-        theme: option.themeData,
+        theme: themeNotifier.value.themeData,
+        darkTheme: AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),
+        themeMode: themeNotifier.value == AppThemeOption.none
+            ? ThemeMode.system
+            : ThemeMode.light,
         home: const ShoppingListsHomePage(),
       ),
     );

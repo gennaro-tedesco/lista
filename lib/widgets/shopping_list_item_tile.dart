@@ -13,20 +13,29 @@ class ShoppingListItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
     return ListTile(
       leading: Checkbox(
         value: item.isChecked,
         onChanged: (_) => onToggle(),
       ),
       title: Text(
-        item.emoji != null ? '${item.emoji}  ${item.name}' : item.name,
+        item.name,
         style: item.isChecked
             ? TextStyle(
                 decoration: TextDecoration.lineThrough,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                color: textColor.withValues(alpha: 0.4),
               )
             : null,
       ),
+      trailing: item.quantity == null || item.quantity!.isEmpty
+          ? null
+          : Text(
+              item.quantity!,
+              style: item.isChecked
+                  ? TextStyle(color: textColor.withValues(alpha: 0.4))
+                  : null,
+            ),
       onTap: onToggle,
     );
   }
