@@ -110,18 +110,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
   }
 
-  Future<void> _editListName() async {
-    final result = await showDialog<String>(
-      context: context,
-      builder: (_) => _EditNameDialog(initialName: widget.list.title ?? ''),
-    );
-    if (result != null && mounted) {
-      setState(() {
-        widget.list.title = result.trim().isEmpty ? null : result.trim();
-      });
-    }
-  }
-
   void _dismissSuggestions() {
     setState(() => _suggestions = []);
   }
@@ -187,8 +175,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   Widget _buildItemDropZone(int index) {
     final isActive = _itemDropIndex == index;
     return DragTarget<int>(
-      onWillAccept: (data) {
-        if (data == null || data == index) {
+      onWillAcceptWithDetails: (details) {
+        if (details.data == index) {
           return false;
         }
         setState(() {
@@ -276,14 +264,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                           Text(
                             _formatDate(widget.list.date),
                             style: theme.textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 6),
-                          GestureDetector(
-                            onTap: _editListName,
-                            child: Text(
-                              widget.list.title ?? 'Shopping List',
-                              style: theme.textTheme.headlineMedium,
-                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -384,14 +364,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                           Text(
                             _formatDate(widget.list.date),
                             style: theme.textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 6),
-                          GestureDetector(
-                            onTap: _editListName,
-                            child: Text(
-                              widget.list.title ?? 'Shopping List',
-                              style: theme.textTheme.headlineMedium,
-                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -498,55 +470,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                 ),
         ),
       ),
-    );
-  }
-}
-
-class _EditNameDialog extends StatefulWidget {
-  final String initialName;
-
-  const _EditNameDialog({required this.initialName});
-
-  @override
-  State<_EditNameDialog> createState() => _EditNameDialogState();
-}
-
-class _EditNameDialogState extends State<_EditNameDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialName);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('List name'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'List title'),
-        onSubmitted: (v) => Navigator.pop(context, v),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

@@ -3,7 +3,7 @@ import 'shopping_list_item.dart';
 class ShoppingList {
   final String id;
   DateTime date;
-  String? title;
+  List<String> labels;
   bool isCompleted;
   String? totalPrice;
   String currencySymbol;
@@ -12,10 +12,11 @@ class ShoppingList {
   ShoppingList({
     required this.id,
     required this.date,
-    this.title,
+    List<String>? labels,
     this.isCompleted = false,
     this.totalPrice,
     this.currencySymbol = '€',
     List<ShoppingListItem>? items,
-  }) : items = items ?? [];
+  })  : labels = labels ?? [],
+        items = items ?? [];
 }

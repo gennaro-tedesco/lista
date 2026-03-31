@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-final themeNotifier = ValueNotifier<AppThemeOption>(AppThemeOption.catppuccinMocha);
+final themeNotifier = ValueNotifier<AppThemeOption>(AppThemeOption.none);
 final uiFontScaleNotifier = ValueNotifier<double>(1.0);
 
 enum AppThemeOption {
@@ -139,13 +139,32 @@ class AppThemes {
       useMaterial3: true,
       brightness: brightness,
     );
-    final textTheme = base.textTheme.apply(
-      fontSizeFactor: fontScale,
-    );
     return base.copyWith(
-      textTheme: textTheme,
-      primaryTextTheme: base.primaryTextTheme.apply(
-        fontSizeFactor: fontScale,
+      textTheme: TextTheme(
+        headlineMedium: base.textTheme.headlineMedium?.copyWith(
+          fontSize: (base.textTheme.headlineMedium?.fontSize ?? 28) * fontScale,
+        ),
+        titleLarge: base.textTheme.titleLarge?.copyWith(
+          fontSize: (base.textTheme.titleLarge?.fontSize ?? 22) * fontScale,
+        ),
+        titleMedium: base.textTheme.titleMedium?.copyWith(
+          fontSize: (base.textTheme.titleMedium?.fontSize ?? 16) * fontScale,
+        ),
+        titleSmall: base.textTheme.titleSmall?.copyWith(
+          fontSize: (base.textTheme.titleSmall?.fontSize ?? 14) * fontScale,
+        ),
+        bodyLarge: base.textTheme.bodyLarge?.copyWith(
+          fontSize: (base.textTheme.bodyLarge?.fontSize ?? 16) * fontScale,
+        ),
+        bodyMedium: base.textTheme.bodyMedium?.copyWith(
+          fontSize: (base.textTheme.bodyMedium?.fontSize ?? 14) * fontScale,
+        ),
+        bodySmall: base.textTheme.bodySmall?.copyWith(
+          fontSize: (base.textTheme.bodySmall?.fontSize ?? 12) * fontScale,
+        ),
+        labelLarge: base.textTheme.labelLarge?.copyWith(
+          fontSize: (base.textTheme.labelLarge?.fontSize ?? 14) * fontScale,
+        ),
       ),
       appBarTheme: base.appBarTheme.copyWith(
         titleTextStyle: (base.appBarTheme.titleTextStyle ?? base.textTheme.titleLarge)
