@@ -5,10 +5,7 @@ class EditableItemData {
   final String name;
   final String quantity;
 
-  const EditableItemData({
-    required this.name,
-    required this.quantity,
-  });
+  const EditableItemData({required this.name, required this.quantity});
 }
 
 class EditItemDialog extends StatefulWidget {
@@ -46,45 +43,43 @@ class _EditItemDialogState extends State<EditItemDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fillColor = theme.inputDecorationTheme.fillColor ??
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHighest;
-    final hintColor = theme.inputDecorationTheme.hintStyle?.color ??
+    final hintColor =
+        theme.inputDecorationTheme.hintStyle?.color ??
         theme.colorScheme.onSurfaceVariant;
 
-    InputDecoration pill({
-          Widget? icon,
-        }) => InputDecoration(
-          hint: icon == null
-              ? null
-              : SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconTheme(
-                      data: IconThemeData(color: hintColor, size: 18),
-                      child: icon,
-                    ),
-                  ),
+    InputDecoration pill({Widget? icon}) => InputDecoration(
+      hint: icon == null
+          ? null
+          : SizedBox(
+              width: 18,
+              height: 18,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: IconTheme(
+                  data: IconThemeData(color: hintColor, size: 18),
+                  child: icon,
                 ),
-          filled: true,
-          fillColor: fillColor,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(999),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(999),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(999),
-            borderSide:
-                BorderSide(color: theme.colorScheme.primary, width: 1.5),
-          ),
-        );
+              ),
+            ),
+      filled: true,
+      fillColor: fillColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+      ),
+    );
 
     return AlertDialog(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -99,9 +94,7 @@ class _EditItemDialogState extends State<EditItemDialog> {
                 controller: _nameController,
                 autofocus: true,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: pill(
-                  icon: const Icon(LucideIcons.shopping_cart),
-                ),
+                decoration: pill(icon: const Icon(LucideIcons.shopping_cart)),
               ),
             ),
             const SizedBox(width: 8),
@@ -110,9 +103,7 @@ class _EditItemDialogState extends State<EditItemDialog> {
               child: TextField(
                 controller: _quantityController,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: pill(
-                  icon: const Icon(LucideIcons.scale),
-                ),
+                decoration: pill(icon: const Icon(LucideIcons.scale)),
               ),
             ),
           ],

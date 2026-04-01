@@ -17,6 +17,6 @@ class ShoppingList {
     this.totalPrice,
     this.currencySymbol = '€',
     List<ShoppingListItem>? items,
-  })  : labels = labels ?? [],
-        items = items ?? [];
+  }) : labels = labels ?? [],
+       items = items ?? [];
 }

@@ -17,14 +17,17 @@ class SuggestionService {
         exactMatches.add(item);
       } else if (normalizedName == normalizedQuery) {
         singularPluralMatches.add(item);
-      } else if (name.startsWith(q) || normalizedName.startsWith(normalizedQuery)) {
+      } else if (name.startsWith(q) ||
+          normalizedName.startsWith(normalizedQuery)) {
         prefixMatches.add(item);
       }
     }
 
-    return [...exactMatches, ...singularPluralMatches, ...prefixMatches]
-        .take(limit)
-        .toList();
+    return [
+      ...exactMatches,
+      ...singularPluralMatches,
+      ...prefixMatches,
+    ].take(limit).toList();
   }
 
   static String _normalize(String value) {
@@ -49,9 +52,7 @@ class SuggestionService {
         value.length > 2) {
       return value.substring(0, value.length - 2);
     }
-    if (value.endsWith('s') &&
-        !value.endsWith('ss') &&
-        value.length > 1) {
+    if (value.endsWith('s') && !value.endsWith('ss') && value.length > 1) {
       return value.substring(0, value.length - 1);
     }
     return value;

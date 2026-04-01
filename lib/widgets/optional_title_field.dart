@@ -10,9 +10,7 @@ class OptionalTitleField extends StatelessWidget {
     return TextField(
       controller: controller,
       textCapitalization: TextCapitalization.sentences,
-      decoration: const InputDecoration(
-        hintText: 'List title (optional)',
-      ),
+      decoration: const InputDecoration(hintText: 'List title (optional)'),
     );
   }
 }

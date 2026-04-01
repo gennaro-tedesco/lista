@@ -38,6 +38,7 @@ Future features may be added, but the base project should remain simple, clear, 
 - Maintain a **single shared codebase** for iOS and Android as much as possible
 - Prefer native platform integrations only when there is no suitable cross-platform Flutter solution
 - Keep the project runnable on macOS development environments targeting Android emulators and iOS simulators
+- After every code change run `dart format .`
 
 ## Codebase expectations
 

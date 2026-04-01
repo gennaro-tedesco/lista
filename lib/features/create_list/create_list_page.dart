@@ -13,7 +13,7 @@ import '../../widgets/shopping_list_item_tile.dart';
 
 class CreateListPage extends StatefulWidget {
   final Future<void> Function(String name, List<ShoppingListItem> items)?
-      onSaveTemplate;
+  onSaveTemplate;
   final List<ShoppingListItem>? initialItems;
   final List<ShoppingListTemplate> existingTemplates;
 
@@ -127,8 +127,9 @@ class _CreateListPageState extends State<CreateListPage> {
         _items[idx] = ShoppingListItem(
           id: item.id,
           name: trimmedName,
-          quantity:
-              result.quantity.trim().isEmpty ? null : result.quantity.trim(),
+          quantity: result.quantity.trim().isEmpty
+              ? null
+              : result.quantity.trim(),
           isChecked: item.isChecked,
           category: item.category,
         );
@@ -153,17 +154,17 @@ class _CreateListPageState extends State<CreateListPage> {
   }
 
   IconData _categoryIcon(String category) => switch (category) {
-        'Fruit' => LucideIcons.apple,
-        'Vegetable' => LucideIcons.carrot,
-        'Drinks' => LucideIcons.glass_water,
-        'Meat' => LucideIcons.beef,
-        'Fish & Seafood' => LucideIcons.fish,
-        'Dairy' => LucideIcons.milk,
-        'Bakery' => LucideIcons.croissant,
-        'Pantry' => LucideIcons.package,
-        'Other' => LucideIcons.package,
-        _ => LucideIcons.package,
-      };
+    'Fruit' => LucideIcons.apple,
+    'Vegetable' => LucideIcons.carrot,
+    'Drinks' => LucideIcons.glass_water,
+    'Meat' => LucideIcons.beef,
+    'Fish & Seafood' => LucideIcons.fish,
+    'Dairy' => LucideIcons.milk,
+    'Bakery' => LucideIcons.croissant,
+    'Pantry' => LucideIcons.package,
+    'Other' => LucideIcons.package,
+    _ => LucideIcons.package,
+  };
 
   void _onItemTextChanged(String value) {
     setState(() {
@@ -173,14 +174,16 @@ class _CreateListPageState extends State<CreateListPage> {
 
   void _addFromSuggestion(FoodSuggestion suggestion) {
     setState(() {
-      _items.add(ShoppingListItem(
-        id: _nextId(),
-        name: suggestion.name,
-        quantity: _quantityController.text.trim().isEmpty
-            ? null
-            : _quantityController.text.trim(),
-        category: suggestion.category,
-      ));
+      _items.add(
+        ShoppingListItem(
+          id: _nextId(),
+          name: suggestion.name,
+          quantity: _quantityController.text.trim().isEmpty
+              ? null
+              : _quantityController.text.trim(),
+          category: suggestion.category,
+        ),
+      );
       _suggestions = [];
     });
     _itemController.clear();
@@ -277,9 +280,7 @@ class _CreateListPageState extends State<CreateListPage> {
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'Template name',
-          ),
+          decoration: const InputDecoration(hintText: 'Template name'),
         ),
         actions: [
           TextButton(
@@ -327,8 +328,11 @@ class _CreateListPageState extends State<CreateListPage> {
               child: Row(
                 children: [
                   if ((item.category ?? 'Other') == cat)
-                    Icon(Icons.check, size: 16,
-                        color: theme.colorScheme.primary)
+                    Icon(
+                      Icons.check,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    )
                   else
                     const SizedBox(width: 16),
                   const SizedBox(width: 8),
@@ -360,8 +364,11 @@ class _CreateListPageState extends State<CreateListPage> {
     );
   }
 
-  Widget _buildItemRow(BuildContext context, ShoppingListItem item,
-      {bool withHandle = false}) {
+  Widget _buildItemRow(
+    BuildContext context,
+    ShoppingListItem item, {
+    bool withHandle = false,
+  }) {
     final theme = Theme.of(context);
     return Dismissible(
       key: ValueKey(item.id),
@@ -413,8 +420,10 @@ class _CreateListPageState extends State<CreateListPage> {
               onTap: () => _toggleCollapse(category),
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -438,8 +447,11 @@ class _CreateListPageState extends State<CreateListPage> {
                       if (allDone)
                         Row(
                           children: [
-                            Icon(LucideIcons.circle_check,
-                                size: 14, color: theme.colorScheme.primary),
+                            Icon(
+                              LucideIcons.circle_check,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               '$checked/$total',
@@ -527,8 +539,7 @@ class _CreateListPageState extends State<CreateListPage> {
                     if (_hasCategories) ...[
                       const SizedBox(height: 4),
                       for (final entry in _groupedItems.entries)
-                        _buildCategorySection(
-                            context, entry.key, entry.value),
+                        _buildCategorySection(context, entry.key, entry.value),
                       const SizedBox(height: 8),
                     ] else if (_items.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -580,8 +591,11 @@ class _CreateListPageState extends State<CreateListPage> {
                           foregroundColor: theme.colorScheme.onSurface,
                         ),
                         tooltip: 'Templates',
-                        icon: Image.asset('images/templates.png',
-                            width: 48, height: 48),
+                        icon: Image.asset(
+                          'images/templates.png',
+                          width: 48,
+                          height: 48,
+                        ),
                       ),
                     IconButton.filled(
                       onPressed: _saveList,

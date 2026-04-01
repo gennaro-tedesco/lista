@@ -49,7 +49,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     }
   }
 
-  Future<void> _openCreateListFromTemplate(ShoppingListTemplate template) async {
+  Future<void> _openCreateListFromTemplate(
+    ShoppingListTemplate template,
+  ) async {
     final result = await Navigator.push<ShoppingList>(
       context,
       MaterialPageRoute(
@@ -111,8 +113,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final formattedPrice = list.totalPrice == null
         ? ''
         : prefixSymbols.contains(currencySymbol)
-            ? '$currencySymbol${list.totalPrice}'
-            : '${list.totalPrice}$currencySymbol';
+        ? '$currencySymbol${list.totalPrice}'
+        : '${list.totalPrice}$currencySymbol';
     return Card(
       margin: EdgeInsets.zero,
       child: InkWell(
@@ -247,8 +249,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                           '${template.items.length} item${template.items.length == 1 ? '' : 's'}',
                         ),
                         onLongPress: () async {
-                          final controller =
-                              TextEditingController(text: template.name);
+                          final controller = TextEditingController(
+                            text: template.name,
+                          );
                           final renamed = await showDialog<String>(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -256,7 +259,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                               content: TextField(
                                 controller: controller,
                                 autofocus: true,
-                                textCapitalization: TextCapitalization.sentences,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
                                 decoration: const InputDecoration(
                                   hintText: 'Template name',
                                 ),
@@ -365,7 +369,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<bool> _handleListSwipe(
-      DismissDirection direction, ShoppingList list) async {
+    DismissDirection direction,
+    ShoppingList list,
+  ) async {
     if (direction == DismissDirection.startToEnd) {
       _toggleCompleted(list);
     } else {
@@ -376,8 +382,18 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -401,10 +417,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      'Completed',
-                      style: theme.textTheme.titleSmall,
-                    ),
+                    child: Text('Completed', style: theme.textTheme.titleSmall),
                   ),
                   const SizedBox(height: 8),
                   Flexible(
@@ -423,8 +436,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   alignment: Alignment.centerLeft,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
                                   child: Icon(
                                     Icons.undo,
                                     color: theme.colorScheme.onSecondary,
@@ -436,8 +450,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   alignment: Alignment.centerRight,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
                                   child: Icon(
                                     Icons.delete,
                                     color: theme.colorScheme.onError,
@@ -481,8 +496,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   Icon(
                     Icons.shopping_basket_outlined,
                     size: 64,
-                    color: theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.35),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.35,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -492,10 +508,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Tap + to create one',
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  Text('Tap + to create one', style: theme.textTheme.bodySmall),
                 ],
               ),
             )
@@ -521,8 +534,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.centerLeft,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
                               child: Icon(
                                 Icons.check,
                                 color: theme.colorScheme.onSecondary,
@@ -534,8 +548,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.centerRight,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
                               child: Icon(
                                 Icons.delete,
                                 color: theme.colorScheme.onError,
@@ -568,7 +583,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   onPressed: _templates.isNotEmpty ? _openTemplates : null,
                   backgroundColor: Theme.of(context).colorScheme.surface,
                   foregroundColor: Theme.of(context).colorScheme.onSurface,
-                  child: Image.asset('images/templates.png', width: 32, height: 32),
+                  child: Image.asset(
+                    'images/templates.png',
+                    width: 32,
+                    height: 32,
+                  ),
                 ),
               ),
             ),
@@ -676,7 +695,10 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final allLabels = ({...widget.availableLabels, ..._selectedLabels}).toList();
+    final allLabels = ({
+      ...widget.availableLabels,
+      ..._selectedLabels,
+    }).toList();
     return AlertDialog(
       title: const Text('Labels'),
       content: SizedBox(
@@ -700,7 +722,9 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: selected ? color : color.withValues(alpha: 0.12),
+                          color: selected
+                              ? color
+                              : color.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(color: color, width: 1.5),
                         ),
@@ -726,9 +750,7 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
                     child: TextField(
                       controller: _newLabelController,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        hintText: 'New label',
-                      ),
+                      decoration: const InputDecoration(hintText: 'New label'),
                       onSubmitted: (_) => _addNewLabel(),
                     ),
                   ),

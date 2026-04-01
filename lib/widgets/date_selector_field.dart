@@ -23,8 +23,18 @@ class DateSelectorField extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -33,7 +43,8 @@ class DateSelectorField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fillColor =
-        theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surfaceContainerHighest;
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
 
     return InkWell(
       onTap: () => _pickDate(context),
@@ -56,8 +67,9 @@ class DateSelectorField extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 _formatDate(selectedDate),
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w500),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(width: 8),
               Icon(

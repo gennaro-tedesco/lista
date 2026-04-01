@@ -14,7 +14,7 @@ import '../../widgets/shopping_list_item_tile.dart';
 class ShoppingListViewPage extends StatefulWidget {
   final ShoppingList list;
   final Future<void> Function(String name, List<ShoppingListItem> items)?
-      onSaveTemplate;
+  onSaveTemplate;
   final List<ShoppingListTemplate> existingTemplates;
 
   const ShoppingListViewPage({
@@ -110,17 +110,17 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   }
 
   IconData _categoryIcon(String category) => switch (category) {
-        'Fruit' => LucideIcons.apple,
-        'Vegetable' => LucideIcons.carrot,
-        'Drinks' => LucideIcons.glass_water,
-        'Meat' => LucideIcons.beef,
-        'Fish & Seafood' => LucideIcons.fish,
-        'Dairy' => LucideIcons.milk,
-        'Bakery' => LucideIcons.croissant,
-        'Pantry' => LucideIcons.package,
-        'Other' => LucideIcons.package,
-        _ => LucideIcons.package,
-      };
+    'Fruit' => LucideIcons.apple,
+    'Vegetable' => LucideIcons.carrot,
+    'Drinks' => LucideIcons.glass_water,
+    'Meat' => LucideIcons.beef,
+    'Fish & Seafood' => LucideIcons.fish,
+    'Dairy' => LucideIcons.milk,
+    'Bakery' => LucideIcons.croissant,
+    'Pantry' => LucideIcons.package,
+    'Other' => LucideIcons.package,
+    _ => LucideIcons.package,
+  };
 
   void _dismissSuggestions() {
     setState(() => _suggestions = []);
@@ -203,8 +203,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         widget.list.items[idx] = ShoppingListItem(
           id: item.id,
           name: trimmedName,
-          quantity:
-              result.quantity.trim().isEmpty ? null : result.quantity.trim(),
+          quantity: result.quantity.trim().isEmpty
+              ? null
+              : result.quantity.trim(),
           isChecked: item.isChecked,
           category: item.category,
         );
@@ -271,8 +272,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               child: Row(
                 children: [
                   if ((item.category ?? 'Other') == cat)
-                    Icon(Icons.check, size: 16,
-                        color: theme.colorScheme.primary)
+                    Icon(
+                      Icons.check,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    )
                   else
                     const SizedBox(width: 16),
                   const SizedBox(width: 8),
@@ -304,8 +308,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     );
   }
 
-  Widget _buildItemRow(BuildContext context, ShoppingListItem item,
-      {bool withHandle = false}) {
+  Widget _buildItemRow(
+    BuildContext context,
+    ShoppingListItem item, {
+    bool withHandle = false,
+  }) {
     final theme = Theme.of(context);
     return Dismissible(
       key: ValueKey(item.id),
@@ -357,8 +364,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               onTap: () => _toggleCollapse(category),
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -382,8 +391,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       if (allDone)
                         Row(
                           children: [
-                            Icon(LucideIcons.circle_check,
-                                size: 14, color: theme.colorScheme.primary),
+                            Icon(
+                              LucideIcons.circle_check,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               '$checked/$total',
@@ -431,7 +443,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     final items = widget.list.items;
     final checked = items.where((i) => i.isChecked).length;
 
-    final fillColor = theme.inputDecorationTheme.fillColor ??
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHighest;
 
     return Scaffold(
@@ -484,8 +497,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     const SizedBox(height: 8),
                     if (_hasCategories) ...[
                       for (final entry in _groupedItems.entries)
-                        _buildCategorySection(
-                            context, entry.key, entry.value),
+                        _buildCategorySection(context, entry.key, entry.value),
                       const SizedBox(height: 8),
                     ] else if (items.isEmpty)
                       Padding(
@@ -594,22 +606,20 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       ),
                       dropdownMenuEntries: _currencyOptions
-                          .map((c) => DropdownMenuEntry<String>(
-                                value: c,
-                                label: c,
-                              ))
+                          .map(
+                            (c) =>
+                                DropdownMenuEntry<String>(value: c, label: c),
+                          )
                           .toList(),
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      onPressed: () =>
-                          _markCompleted(!widget.list.isCompleted),
+                      onPressed: () => _markCompleted(!widget.list.isCompleted),
                       style: IconButton.styleFrom(
                         backgroundColor: theme.colorScheme.surface,
                         foregroundColor: theme.colorScheme.onSurface,
                       ),
-                      tooltip:
-                          widget.list.isCompleted ? 'Re-open' : 'Complete',
+                      tooltip: widget.list.isCompleted ? 'Re-open' : 'Complete',
                       icon: Icon(
                         widget.list.isCompleted
                             ? LucideIcons.rotate_ccw

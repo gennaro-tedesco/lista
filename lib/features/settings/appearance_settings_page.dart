@@ -11,9 +11,7 @@ class AppearanceSettingsPage extends StatelessWidget {
       builder: (context, child) {
         final theme = Theme.of(context);
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Appearance'),
-          ),
+          appBar: AppBar(title: const Text('Appearance')),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -23,10 +21,7 @@ class AppearanceSettingsPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Theme',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('Theme', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 12),
                       RadioGroup<AppThemeOption>(
                         groupValue: themeNotifier.value,
@@ -58,10 +53,7 @@ class AppearanceSettingsPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Font Size',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      Text('Font Size', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
                       Text(
                         '${(uiFontScaleNotifier.value * 100).round()}%',

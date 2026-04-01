@@ -7,9 +7,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -29,15 +27,9 @@ class SettingsPage extends StatelessWidget {
                   },
                 ),
                 const Divider(height: 1),
-                const ListTile(
-                  title: Text('About'),
-                  enabled: false,
-                ),
+                const ListTile(title: Text('About'), enabled: false),
                 const Divider(height: 1),
-                const ListTile(
-                  title: Text('Account'),
-                  enabled: false,
-                ),
+                const ListTile(title: Text('Account'), enabled: false),
               ],
             ),
           ),

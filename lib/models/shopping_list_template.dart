@@ -3,11 +3,7 @@ class ShoppingListTemplateItem {
   final String? quantity;
   final String? category;
 
-  ShoppingListTemplateItem({
-    required this.name,
-    this.quantity,
-    this.category,
-  });
+  ShoppingListTemplateItem({required this.name, this.quantity, this.category});
 }
 
 class ShoppingListTemplate {

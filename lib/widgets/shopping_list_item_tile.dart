@@ -27,10 +27,7 @@ class ShoppingListItemTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         child: Row(
           children: [
-            if (leading != null) ...[
-              leading!,
-              const SizedBox(width: 8),
-            ],
+            if (leading != null) ...[leading!, const SizedBox(width: 8)],
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 24,
@@ -48,8 +45,11 @@ class ShoppingListItemTile extends StatelessWidget {
                 ),
               ),
               child: item.isChecked
-                  ? Icon(Icons.check, size: 14,
-                      color: theme.colorScheme.onPrimary)
+                  ? Icon(
+                      Icons.check,
+                      size: 14,
+                      color: theme.colorScheme.onPrimary,
+                    )
                   : null,
             ),
             const SizedBox(width: 14),
@@ -68,8 +68,10 @@ class ShoppingListItemTile extends StatelessWidget {
             if (item.quantity != null && item.quantity!.isNotEmpty) ...[
               const SizedBox(width: 10),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: item.isChecked
                       ? theme.colorScheme.outline.withValues(alpha: 0.15)
@@ -87,10 +89,7 @@ class ShoppingListItemTile extends StatelessWidget {
                 ),
               ),
             ],
-            if (trailing != null) ...[
-              const SizedBox(width: 4),
-              trailing!,
-            ],
+            if (trailing != null) ...[const SizedBox(width: 4), trailing!],
           ],
         ),
       ),
