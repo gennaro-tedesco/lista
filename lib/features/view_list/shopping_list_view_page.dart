@@ -35,6 +35,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
+  final Set<String> _collapsedCategories = {};
 
   @override
   void initState() {
@@ -53,21 +54,77 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     super.dispose();
   }
 
-  String _nextId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
-  }
+  String _nextId() => DateTime.now().microsecondsSinceEpoch.toString();
 
   String _signatureFromItems(List<ShoppingListItem> items) => items
       .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
       .join('||');
 
-  String _signatureFromTemplateItems(List<ShoppingListTemplateItem> items) => items
-      .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
-      .join('||');
+  String _signatureFromTemplateItems(List<ShoppingListTemplateItem> items) =>
+      items
+          .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
+          .join('||');
 
   bool get _canSaveTemplate =>
       widget.list.items.isNotEmpty &&
       !_templateSignatures.contains(_signatureFromItems(widget.list.items));
+
+  bool get _hasCategories =>
+      widget.list.items.any((item) => item.category != null);
+
+  Map<String, List<ShoppingListItem>> get _groupedItems {
+    final map = <String, List<ShoppingListItem>>{};
+    for (final item in widget.list.items) {
+      map.putIfAbsent(item.category ?? 'Other', () => []).add(item);
+    }
+    return Map.fromEntries(
+      kCategoryOrder
+          .where(map.containsKey)
+          .map((cat) => MapEntry(cat, map[cat]!)),
+    );
+  }
+
+  void _toggle(String id) {
+    final item = widget.list.items.firstWhere((i) => i.id == id);
+    setState(() => item.isChecked = !item.isChecked);
+  }
+
+  void _deleteItem(String id) {
+    setState(() => widget.list.items.removeWhere((i) => i.id == id));
+  }
+
+  void _changeCategory(String id, String? newCategory) {
+    setState(() {
+      widget.list.items.firstWhere((i) => i.id == id).category = newCategory;
+    });
+  }
+
+  void _toggleCollapse(String category) {
+    setState(() {
+      if (_collapsedCategories.contains(category)) {
+        _collapsedCategories.remove(category);
+      } else {
+        _collapsedCategories.add(category);
+      }
+    });
+  }
+
+  IconData _categoryIcon(String category) => switch (category) {
+        'Fruit' => LucideIcons.apple,
+        'Vegetable' => LucideIcons.carrot,
+        'Drinks' => LucideIcons.glass_water,
+        'Meat' => LucideIcons.beef,
+        'Fish & Seafood' => LucideIcons.fish,
+        'Dairy' => LucideIcons.milk,
+        'Bakery' => LucideIcons.croissant,
+        'Pantry' => LucideIcons.package,
+        'Other' => LucideIcons.package,
+        _ => LucideIcons.package,
+      };
+
+  void _dismissSuggestions() {
+    setState(() => _suggestions = []);
+  }
 
   void _onItemTextChanged(String value) {
     setState(() {
@@ -84,6 +141,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
+          category: suggestion.category,
         ),
       );
       _suggestions = [];
@@ -111,33 +169,13 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _quantityController.clear();
   }
 
-  void _toggle(int index) {
-    setState(() {
-      widget.list.items[index].isChecked = !widget.list.items[index].isChecked;
-    });
-  }
-
-  void _deleteItem(int index) {
-    setState(() {
-      widget.list.items.removeAt(index);
-    });
-  }
-
-  void _dismissSuggestions() {
-    setState(() => _suggestions = []);
-  }
-
   void _updateTotalPrice(String value) {
     widget.list.totalPrice = value.trim().isEmpty ? null : value.trim();
   }
 
   void _updateCurrency(String? value) {
-    if (value == null) {
-      return;
-    }
-    setState(() {
-      widget.list.currencySymbol = value;
-    });
+    if (value == null) return;
+    setState(() => widget.list.currencySymbol = value);
   }
 
   void _markCompleted(bool value) {
@@ -145,13 +183,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       widget.list.isCompleted = value;
       _updateTotalPrice(_totalPriceController.text);
     });
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _editItem(int index) async {
-    final item = widget.list.items[index];
+  Future<void> _editItem(String id) async {
+    final item = widget.list.items.firstWhere((i) => i.id == id);
     final result = await showDialog<EditableItemData>(
       context: context,
       builder: (_) => EditItemDialog(
@@ -161,24 +197,23 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     );
     if (result != null && mounted) {
       final trimmedName = result.name.trim();
-      if (trimmedName.isEmpty) {
-        return;
-      }
+      if (trimmedName.isEmpty) return;
       setState(() {
-        widget.list.items[index] = ShoppingListItem(
+        final idx = widget.list.items.indexWhere((i) => i.id == id);
+        widget.list.items[idx] = ShoppingListItem(
           id: item.id,
           name: trimmedName,
-          quantity: result.quantity.trim().isEmpty ? null : result.quantity.trim(),
+          quantity:
+              result.quantity.trim().isEmpty ? null : result.quantity.trim(),
           isChecked: item.isChecked,
+          category: item.category,
         );
       });
     }
   }
 
   Future<void> _saveAsTemplate() async {
-    if (widget.onSaveTemplate == null || !_canSaveTemplate) {
-      return;
-    }
+    if (widget.onSaveTemplate == null || !_canSaveTemplate) return;
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
@@ -188,9 +223,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'Template name',
-          ),
+          decoration: const InputDecoration(hintText: 'Template name'),
         ),
         actions: [
           TextButton(
@@ -204,26 +237,76 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         ],
       ),
     );
-    if (!mounted || name == null || name.isEmpty) {
-      return;
-    }
+    if (!mounted || name == null || name.isEmpty) return;
     await widget.onSaveTemplate!(
       name,
       List<ShoppingListItem>.from(widget.list.items),
     );
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() {
       _templateSignatures.add(_signatureFromItems(widget.list.items));
     });
   }
 
-  String get _currencySymbol => widget.list.currencySymbol;
-
-  Widget _buildListItemRow(BuildContext context, int index) {
+  Future<void> _showCategoryMenu(
+    BuildContext context,
+    ShoppingListItem item,
+    Offset tapPosition,
+  ) async {
+    final screenSize = MediaQuery.sizeOf(context);
     final theme = Theme.of(context);
-    final item = widget.list.items[index];
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        tapPosition.dx,
+        tapPosition.dy,
+        screenSize.width - tapPosition.dx,
+        screenSize.height - tapPosition.dy,
+      ),
+      items: kCategoryOrder
+          .map(
+            (cat) => PopupMenuItem<String>(
+              value: cat,
+              height: 30,
+              child: Row(
+                children: [
+                  if ((item.category ?? 'Other') == cat)
+                    Icon(Icons.check, size: 16,
+                        color: theme.colorScheme.primary)
+                  else
+                    const SizedBox(width: 16),
+                  const SizedBox(width: 8),
+                  Text(cat),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+    if (!mounted || result == null) return;
+    _changeCategory(item.id, result == 'Other' ? null : result);
+  }
+
+  Widget _categoryPicker(BuildContext context, ShoppingListItem item) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: (details) =>
+          _showCategoryMenu(context, item, details.globalPosition),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Icon(
+          Icons.keyboard_arrow_down,
+          color: theme.colorScheme.outline.withValues(alpha: 0.5),
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemRow(BuildContext context, ShoppingListItem item,
+      {bool withHandle = false}) {
+    final theme = Theme.of(context);
     return Dismissible(
       key: ValueKey(item.id),
       background: Container(color: Colors.transparent),
@@ -237,19 +320,107 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         child: Icon(Icons.delete, color: theme.colorScheme.onError),
       ),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) => _deleteItem(index),
+      onDismissed: (_) => _deleteItem(item.id),
       child: GestureDetector(
-        onLongPress: () => _editItem(index),
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ShoppingListItemTile(
-            item: item,
-            onToggle: () => _toggle(index),
-          ),
+        onLongPress: () => _editItem(item.id),
+        child: ShoppingListItemTile(
+          item: item,
+          onToggle: () => _toggle(item.id),
+          leading: withHandle ? _categoryPicker(context, item) : null,
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategorySection(
+    BuildContext context,
+    String category,
+    List<ShoppingListItem> items,
+  ) {
+    final theme = Theme.of(context);
+    final checked = items.where((i) => i.isChecked).length;
+    final total = items.length;
+    final isCollapsed = _collapsedCategories.contains(category);
+    final allDone = total > 0 && checked == total;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: GestureDetector(
+              onTap: () => _toggleCollapse(category),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      _categoryIcon(category),
+                      size: 18,
+                      color: allDone
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      category,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: allDone
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (total > 0)
+                      if (allDone)
+                        Row(
+                          children: [
+                            Icon(LucideIcons.circle_check,
+                                size: 14, color: theme.colorScheme.primary),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$checked/$total',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          '$checked/$total',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    const Spacer(),
+                    Icon(
+                      isCollapsed
+                          ? LucideIcons.chevron_right
+                          : LucideIcons.chevron_down,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!isCollapsed)
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+                child: _buildItemRow(context, item, withHandle: true),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -311,7 +482,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    if (items.isEmpty)
+                    if (_hasCategories) ...[
+                      for (final entry in _groupedItems.entries)
+                        _buildCategorySection(
+                            context, entry.key, entry.value),
+                      const SizedBox(height: 8),
+                    ] else if (items.isEmpty)
                       Padding(
                         padding: const EdgeInsets.all(40),
                         child: Center(
@@ -324,10 +500,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       )
                     else
-                      for (var i = 0; i < items.length; i++)
+                      for (final item in items)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: _buildListItemRow(context, i),
+                          child: _buildItemRow(context, item),
                         ),
                     const SizedBox(height: 8),
                   ],
@@ -398,7 +574,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     ),
                     const SizedBox(width: 8),
                     DropdownMenu<String>(
-                      initialSelection: _currencySymbol,
+                      initialSelection: widget.list.currencySymbol,
                       onSelected: _updateCurrency,
                       width: 96,
                       inputDecorationTheme: InputDecorationTheme(
@@ -426,12 +602,14 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      onPressed: () => _markCompleted(!widget.list.isCompleted),
+                      onPressed: () =>
+                          _markCompleted(!widget.list.isCompleted),
                       style: IconButton.styleFrom(
                         backgroundColor: theme.colorScheme.surface,
                         foregroundColor: theme.colorScheme.onSurface,
                       ),
-                      tooltip: widget.list.isCompleted ? 'Re-open' : 'Complete',
+                      tooltip:
+                          widget.list.isCompleted ? 'Re-open' : 'Complete',
                       icon: Icon(
                         widget.list.isCompleted
                             ? LucideIcons.rotate_ccw

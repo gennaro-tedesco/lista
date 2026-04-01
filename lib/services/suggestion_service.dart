@@ -5,19 +5,19 @@ class SuggestionService {
   static List<FoodSuggestion> getSuggestions(String query, {int limit = 6}) {
     if (query.trim().isEmpty) return [];
     final q = query.toLowerCase().trim();
+    final normalizedQuery = _normalize(q);
     final exactMatches = <FoodSuggestion>[];
     final singularPluralMatches = <FoodSuggestion>[];
     final prefixMatches = <FoodSuggestion>[];
-    final singularQuery = _singularize(q);
-    final pluralQuery = _pluralize(q);
 
     for (final item in foodSuggestions) {
       final name = item.name.toLowerCase();
+      final normalizedName = _normalize(name);
       if (name == q) {
         exactMatches.add(item);
-      } else if (name == singularQuery || name == pluralQuery) {
+      } else if (normalizedName == normalizedQuery) {
         singularPluralMatches.add(item);
-      } else if (name.startsWith(q)) {
+      } else if (name.startsWith(q) || normalizedName.startsWith(normalizedQuery)) {
         prefixMatches.add(item);
       }
     }
@@ -27,26 +27,33 @@ class SuggestionService {
         .toList();
   }
 
-  static String _singularize(String value) {
+  static String _normalize(String value) {
+    final parts = value.split(' ');
+    if (parts.isEmpty) return value;
+    parts[parts.length - 1] = _normalizeWord(parts.last);
+    return parts.join(' ');
+  }
+
+  static String _normalizeWord(String value) {
     if (value.endsWith('ies') && value.length > 3) {
       return '${value.substring(0, value.length - 3)}y';
     }
-    if (value.endsWith('es') && value.length > 2) {
+    if (value.endsWith('oes') && value.length > 3) {
       return value.substring(0, value.length - 2);
     }
-    if (value.endsWith('s') && value.length > 1) {
+    if ((value.endsWith('ches') ||
+            value.endsWith('shes') ||
+            value.endsWith('xes') ||
+            value.endsWith('zes') ||
+            value.endsWith('sses')) &&
+        value.length > 2) {
+      return value.substring(0, value.length - 2);
+    }
+    if (value.endsWith('s') &&
+        !value.endsWith('ss') &&
+        value.length > 1) {
       return value.substring(0, value.length - 1);
     }
     return value;
-  }
-
-  static String _pluralize(String value) {
-    if (value.endsWith('y') && value.length > 1) {
-      return '${value.substring(0, value.length - 1)}ies';
-    }
-    if (value.endsWith('s')) {
-      return value;
-    }
-    return '${value}s';
   }
 }

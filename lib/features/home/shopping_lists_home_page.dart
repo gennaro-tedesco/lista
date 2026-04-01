@@ -64,6 +64,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   id: '${DateTime.now().microsecondsSinceEpoch}-${entry.key}',
                   name: entry.value.name,
                   quantity: entry.value.quantity,
+                  category: entry.value.category,
                 ),
               )
               .toList(),
@@ -86,6 +87,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 (item) => ShoppingListTemplateItem(
                   name: item.name,
                   quantity: item.quantity,
+                  category: item.category,
                 ),
               )
               .toList(),

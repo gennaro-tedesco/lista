@@ -1,10 +1,12 @@
 class ShoppingListTemplateItem {
   final String name;
   final String? quantity;
+  final String? category;
 
   ShoppingListTemplateItem({
     required this.name,
     this.quantity,
+    this.category,
   });
 }
 

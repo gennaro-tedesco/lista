@@ -28,17 +28,23 @@ class AppearanceSettingsPage extends StatelessWidget {
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
-                      ...AppThemeOption.values.map(
-                        (option) => RadioListTile<AppThemeOption>(
-                          value: option,
-                          groupValue: themeNotifier.value,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(option.label),
-                          onChanged: (value) {
-                            if (value != null) {
-                              themeNotifier.value = value;
-                            }
-                          },
+                      RadioGroup<AppThemeOption>(
+                        groupValue: themeNotifier.value,
+                        onChanged: (value) {
+                          if (value != null) {
+                            themeNotifier.value = value;
+                          }
+                        },
+                        child: Column(
+                          children: AppThemeOption.values
+                              .map(
+                                (option) => RadioListTile<AppThemeOption>(
+                                  value: option,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(option.label),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ),
                     ],
