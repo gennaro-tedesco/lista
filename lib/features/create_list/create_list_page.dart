@@ -134,54 +134,75 @@ class _CreateListPageState extends State<CreateListPage> {
           onTap: _dismissSuggestions,
           behavior: HitTestBehavior.translucent,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     const SizedBox(height: 8),
-                    Center(
-                      child: DateSelectorField(
-                        selectedDate: _selectedDate,
-                        onDateSelected: (date) =>
-                            setState(() => _selectedDate = date),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: DateSelectorField(
+                              selectedDate: _selectedDate,
+                              onDateSelected: (date) =>
+                                  setState(() => _selectedDate = date),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          AddItemInput(
+                            itemController: _itemController,
+                            quantityController: _quantityController,
+                            onChanged: _onItemTextChanged,
+                            onSubmit: _addFromText,
+                            suggestions: _suggestions.isNotEmpty
+                                ? AutocompleteDropdown(
+                                    suggestions: _suggestions,
+                                    onSelect: _addFromSuggestion,
+                                  )
+                                : null,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    AddItemInput(
-                      itemController: _itemController,
-                      quantityController: _quantityController,
-                      onChanged: _onItemTextChanged,
-                      onSubmit: _addFromText,
-                    ),
-                    if (_suggestions.isNotEmpty)
-                      AutocompleteDropdown(
-                        suggestions: _suggestions,
-                        onSelect: _addFromSuggestion,
-                      ),
                     if (_items.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      const Divider(),
                       ..._items.asMap().entries.map(
-                            (entry) => Dismissible(
-                              key: ValueKey(entry.value.id),
-                              background: Container(color: Colors.transparent),
-                              secondaryBackground: Container(
-                                color: Theme.of(context).colorScheme.error,
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Icon(
-                                  Icons.delete,
-                                  color: Theme.of(context).colorScheme.onError,
+                            (entry) => Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                              child: Dismissible(
+                                key: ValueKey(entry.value.id),
+                                background: Container(color: Colors.transparent),
+                                secondaryBackground: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Icon(
+                                    Icons.delete,
+                                    color: theme.colorScheme.onError,
+                                  ),
                                 ),
-                              ),
-                              direction: DismissDirection.endToStart,
-                              onDismissed: (_) => _deleteItem(entry.key),
-                              child: GestureDetector(
-                                onLongPress: () => _editItem(entry.key),
-                                child: ShoppingListItemTile(
-                                  item: entry.value,
-                                  onToggle: () => _toggleItem(entry.key),
+                                direction: DismissDirection.endToStart,
+                                onDismissed: (_) => _deleteItem(entry.key),
+                                child: GestureDetector(
+                                  onLongPress: () => _editItem(entry.key),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: ShoppingListItemTile(
+                                      item: entry.value,
+                                      onToggle: () => _toggleItem(entry.key),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),

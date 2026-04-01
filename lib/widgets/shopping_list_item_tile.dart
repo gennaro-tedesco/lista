@@ -20,7 +20,7 @@ class ShoppingListItemTile extends StatelessWidget {
       onTap: onToggle,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         child: Row(
           children: [
             AnimatedContainer(

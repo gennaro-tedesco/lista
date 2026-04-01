@@ -31,6 +31,7 @@ class AutocompleteDropdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: suggestions.map((s) {
             return InkWell(
               onTap: () => onSelect(s),

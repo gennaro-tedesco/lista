@@ -279,7 +279,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Center(
                             child: DateSelectorField(
@@ -303,12 +303,13 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
                             quantityController: _quantityController,
                             onChanged: _onItemTextChanged,
                             onSubmit: _addFromText,
+                            suggestions: _suggestions.isNotEmpty
+                                ? AutocompleteDropdown(
+                                    suggestions: _suggestions,
+                                    onSelect: _addFromSuggestion,
+                                  )
+                                : null,
                           ),
-                          if (_suggestions.isNotEmpty)
-                            AutocompleteDropdown(
-                              suggestions: _suggestions,
-                              onSelect: _addFromSuggestion,
-                            ),
                         ],
                       ),
                     ),
@@ -328,7 +329,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
                     else
                       for (var i = 0; i < items.length; i++)
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                           child: _buildListItemRow(context, i),
                         ),
                     const SizedBox(height: 8),
