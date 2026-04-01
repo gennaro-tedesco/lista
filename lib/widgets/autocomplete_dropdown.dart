@@ -13,21 +13,37 @@ class AutocompleteDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(top: 4),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ...suggestions.map(
-            (s) => ListTile(
-              dense: true,
-              title: Text(s.name),
-              onTap: () => onSelect(s),
-            ),
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: suggestions.map((s) {
+            return InkWell(
+              onTap: () => onSelect(s),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 13,
+                ),
+                child: Text(s.name, style: theme.textTheme.bodyMedium),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

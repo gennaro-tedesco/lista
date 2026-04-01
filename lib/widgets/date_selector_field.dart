@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 class DateSelectorField extends StatelessWidget {
   final DateTime selectedDate;
@@ -32,23 +33,23 @@ class DateSelectorField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fillColor =
-        theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surface;
+        theme.inputDecorationTheme.fillColor ?? theme.colorScheme.surfaceContainerHighest;
 
     return InkWell(
       onTap: () => _pickDate(context),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(999),
       child: Ink(
         decoration: BoxDecoration(
           color: fillColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.calendar_today,
+                LucideIcons.calendar,
                 size: 16,
                 color: theme.colorScheme.primary,
               ),
@@ -58,10 +59,10 @@ class DateSelectorField extends StatelessWidget {
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(fontWeight: FontWeight.w500),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Icon(
-                Icons.arrow_drop_down,
-                size: 18,
+                LucideIcons.chevron_down,
+                size: 16,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],

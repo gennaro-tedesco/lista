@@ -268,7 +268,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                       const EdgeInsets.symmetric(horizontal: 20),
                                   child: Icon(
                                     Icons.undo,
-                                    color: theme.colorScheme.onPrimary,
+                                    color: theme.colorScheme.onSecondary,
                                   ),
                                 ),
                                 secondaryBackground: Container(
@@ -366,7 +366,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: Icon(
                                 Icons.check,
-                                color: theme.colorScheme.onPrimary,
+                                color: theme.colorScheme.onSecondary,
                               ),
                             ),
                             secondaryBackground: Container(
@@ -398,6 +398,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         height: 56,
         child: FloatingActionButton(
           onPressed: _openCreateList,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -489,75 +491,73 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
     _newLabelController.clear();
   }
 
-  void _removeLabel(String label) {
-    setState(() {
-      _selectedLabels.remove(label);
-    });
-    widget.onChanged(List<String>.from(_selectedLabels));
-  }
-
   @override
   Widget build(BuildContext context) {
     final allLabels = ({...widget.availableLabels, ..._selectedLabels}).toList();
     return AlertDialog(
       title: const Text('Labels'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (allLabels.isNotEmpty) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: allLabels.map((label) {
-                final selected = _selectedLabels.contains(label);
-                final color = widget.colorForLabel(label);
-                return GestureDetector(
-                  onTap: () => _toggleLabel(label, !selected),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected ? color : color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: color, width: 1.5),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? Colors.white : color,
-                        fontSize: 13,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-          ],
-          Row(
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _newLabelController,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'New label',
-                  ),
-                  onSubmitted: (_) => _addNewLabel(),
+              if (allLabels.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: allLabels.map((label) {
+                    final selected = _selectedLabels.contains(label);
+                    final color = widget.colorForLabel(label);
+                    return GestureDetector(
+                      onTap: () => _toggleLabel(label, !selected),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected ? color : color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: color, width: 1.5),
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: selected ? Colors.white : color,
+                            fontSize: 13,
+                            fontWeight: selected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.check),
-                onPressed: _addNewLabel,
+                const SizedBox(height: 12),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newLabelController,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(
+                        hintText: 'New label',
+                      ),
+                      onSubmitted: (_) => _addNewLabel(),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.check),
+                    onPressed: _addNewLabel,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
       actions: [
         TextButton(

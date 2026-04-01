@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
@@ -99,9 +100,7 @@ class _CreateListPageState extends State<CreateListPage> {
     );
     if (result != null && mounted) {
       final trimmedName = result.name.trim();
-      if (trimmedName.isEmpty) {
-        return;
-      }
+      if (trimmedName.isEmpty) return;
       setState(() {
         _items[index] = ShoppingListItem(
           id: item.id,
@@ -128,77 +127,95 @@ class _CreateListPageState extends State<CreateListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: GestureDetector(
           onTap: _dismissSuggestions,
           behavior: HitTestBehavior.translucent,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                      onPressed: () => Navigator.pop(context),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: DateSelectorField(
+                        selectedDate: _selectedDate,
+                        onDateSelected: (date) =>
+                            setState(() => _selectedDate = date),
+                      ),
                     ),
-                    const Spacer(),
-                    TextButton(
+                    const SizedBox(height: 16),
+                    AddItemInput(
+                      itemController: _itemController,
+                      quantityController: _quantityController,
+                      onChanged: _onItemTextChanged,
+                      onSubmit: _addFromText,
+                    ),
+                    if (_suggestions.isNotEmpty)
+                      AutocompleteDropdown(
+                        suggestions: _suggestions,
+                        onSelect: _addFromSuggestion,
+                      ),
+                    if (_items.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const Divider(),
+                      ..._items.asMap().entries.map(
+                            (entry) => Dismissible(
+                              key: ValueKey(entry.value.id),
+                              background: Container(color: Colors.transparent),
+                              secondaryBackground: Container(
+                                color: Theme.of(context).colorScheme.error,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Icon(
+                                  Icons.delete,
+                                  color: Theme.of(context).colorScheme.onError,
+                                ),
+                              ),
+                              direction: DismissDirection.endToStart,
+                              onDismissed: (_) => _deleteItem(entry.key),
+                              child: GestureDetector(
+                                onLongPress: () => _editItem(entry.key),
+                                child: ShoppingListItemTile(
+                                  item: entry.value,
+                                  onToggle: () => _toggleItem(entry.key),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ],
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton.filled(
+                      onPressed: () => Navigator.pop(context),
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surface,
+                        foregroundColor: theme.colorScheme.onSurface,
+                      ),
+                      tooltip: 'Back',
+                      icon: const Icon(LucideIcons.chevron_left, size: 22),
+                    ),
+                    IconButton.filled(
                       onPressed: _saveList,
-                      child: const Text('Save'),
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surface,
+                        foregroundColor: theme.colorScheme.onSurface,
+                      ),
+                      tooltip: 'Save',
+                      icon: const Icon(LucideIcons.check, size: 22),
                     ),
                   ],
                 ),
               ),
-              DateSelectorField(
-                selectedDate: _selectedDate,
-                onDateSelected: (date) =>
-                    setState(() => _selectedDate = date),
-              ),
-              const SizedBox(height: 16),
-              AddItemInput(
-                itemController: _itemController,
-                quantityController: _quantityController,
-                onChanged: _onItemTextChanged,
-                onSubmit: _addFromText,
-              ),
-              if (_suggestions.isNotEmpty)
-                AutocompleteDropdown(
-                  suggestions: _suggestions,
-                  onSelect: _addFromSuggestion,
-                ),
-              if (_items.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const Divider(),
-                ..._items.asMap().entries.map(
-                      (entry) => Dismissible(
-                        key: ValueKey(entry.value.id),
-                        background: Container(
-                          color: Colors.transparent,
-                        ),
-                        secondaryBackground: Container(
-                          color: Theme.of(context).colorScheme.error,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Icon(
-                            Icons.delete,
-                            color: Theme.of(context).colorScheme.onError,
-                          ),
-                        ),
-                        direction: DismissDirection.endToStart,
-                        onDismissed: (_) => _deleteItem(entry.key),
-                        child: GestureDetector(
-                          onLongPress: () => _editItem(entry.key),
-                          child: ShoppingListItemTile(
-                            item: entry.value,
-                            onToggle: () => _toggleItem(entry.key),
-                          ),
-                        ),
-                      ),
-                    ),
-              ],
             ],
           ),
         ),

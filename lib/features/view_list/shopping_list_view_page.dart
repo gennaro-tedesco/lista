@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../services/suggestion_service.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
+import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
 
@@ -17,19 +19,24 @@ class ShoppingListViewPage extends StatefulWidget {
   State<ShoppingListViewPage> createState() => _ShoppingListViewPageState();
 }
 
-class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
+class _ShoppingListViewPageState extends State<ShoppingListViewPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalPriceController = TextEditingController();
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
-  int? _draggingItemIndex;
-  int? _itemDropIndex;
+  final GlobalKey _menuIconKey = GlobalKey();
+  late final AnimationController _menuRotation;
 
   @override
   void initState() {
     super.initState();
     _totalPriceController.text = widget.list.totalPrice ?? '';
+    _menuRotation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
   }
 
   @override
@@ -37,6 +44,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
+    _menuRotation.dispose();
     super.dispose();
   }
 
@@ -98,20 +106,52 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
   }
 
-  void _reorderItems(int oldIndex, int newIndex) {
-    setState(() {
-      final item = widget.list.items.removeAt(oldIndex);
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
-      widget.list.items.insert(newIndex, item);
-      _draggingItemIndex = null;
-      _itemDropIndex = null;
-    });
-  }
-
   void _dismissSuggestions() {
     setState(() => _suggestions = []);
+  }
+
+  Future<void> _openMenu() async {
+    final renderBox =
+        _menuIconKey.currentContext!.findRenderObject() as RenderBox;
+    final iconOffset = renderBox.localToGlobal(Offset.zero);
+    final iconSize = renderBox.size;
+    final screenSize = MediaQuery.of(context).size;
+    _menuRotation.forward();
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        iconOffset.dx,
+        iconOffset.dy + iconSize.height,
+        screenSize.width - iconOffset.dx - iconSize.width,
+        screenSize.height - iconOffset.dy - iconSize.height,
+      ),
+      items: [
+        const PopupMenuItem(value: 'save', child: Text('Save')),
+        const PopupMenuItem(value: 'save_template', child: Text('Save as template')),
+        const PopupMenuItem(value: 'from_template', child: Text('From template')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'back', child: Text('Back')),
+      ],
+    );
+    _menuRotation.reverse();
+    if (!mounted) return;
+    switch (result) {
+      case 'save':
+      case 'back':
+        Navigator.pop(context);
+        return;
+      case 'save_template':
+      case 'from_template':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Coming soon'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      case null:
+        return;
+    }
   }
 
   void _updateTotalPrice(String value) {
@@ -162,69 +202,36 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
   String get _currencySymbol => widget.list.currencySymbol;
-
-  Widget _buildItemDropZone(int index) {
-    final isActive = _itemDropIndex == index;
-    return DragTarget<int>(
-      onWillAcceptWithDetails: (details) {
-        if (details.data == index) {
-          return false;
-        }
-        setState(() {
-          _itemDropIndex = index;
-        });
-        return true;
-      },
-      onLeave: (_) {
-        if (_itemDropIndex == index) {
-          setState(() {
-            _itemDropIndex = null;
-          });
-        }
-      },
-      onAcceptWithDetails: (details) {
-        _reorderItems(details.data, index);
-      },
-      builder: (context, candidateData, rejectedData) => AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        height: isActive ? 20 : 8,
-      ),
-    );
-  }
 
   Widget _buildListItemRow(BuildContext context, int index) {
     final theme = Theme.of(context);
     final item = widget.list.items[index];
     return Dismissible(
       key: ValueKey(item.id),
-      background: Container(
-        color: Colors.transparent,
-      ),
+      background: Container(color: Colors.transparent),
       secondaryBackground: Container(
-        color: theme.colorScheme.error,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error,
+          borderRadius: BorderRadius.circular(12),
+        ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Icon(
-          Icons.delete,
-          color: theme.colorScheme.onError,
-        ),
+        child: Icon(Icons.delete, color: theme.colorScheme.onError),
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => _deleteItem(index),
       child: GestureDetector(
         onLongPress: () => _editItem(index),
-        child: ShoppingListItemTile(
-          item: item,
-          onToggle: () => _toggle(index),
+        child: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ShoppingListItemTile(
+            item: item,
+            onToggle: () => _toggle(index),
+          ),
         ),
       ),
     );
@@ -236,22 +243,35 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     final items = widget.list.items;
     final checked = items.where((i) => i.isChecked).length;
 
+    final fillColor = theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+
     return Scaffold(
       body: SafeArea(
         child: GestureDetector(
           onTap: _dismissSuggestions,
           behavior: HitTestBehavior.translucent,
-          child: items.isEmpty
-              ? ListView(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
                       child: Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                            onPressed: () => Navigator.pop(context),
-                            color: theme.colorScheme.onSurface,
+                          GestureDetector(
+                            onTap: _openMenu,
+                            child: RotationTransition(
+                              turns: Tween(begin: 0.0, end: 0.5)
+                                  .animate(_menuRotation),
+                              child: Icon(
+                                key: _menuIconKey,
+                                LucideIcons.menu,
+                                size: 20,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -259,11 +279,14 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            _formatDate(widget.list.date),
-                            style: theme.textTheme.bodySmall,
+                          Center(
+                            child: DateSelectorField(
+                              selectedDate: widget.list.date,
+                              onDateSelected: (date) =>
+                                  setState(() => widget.list.date = date),
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -289,185 +312,124 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
-                    Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Center(
-                        child: Text(
-                          'No items in this list',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 8),
+                    if (items.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Center(
+                          child: Text(
+                            'No items in this list',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _totalPriceController,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Total price',
-                              ),
-                              onChanged: _updateTotalPrice,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            value: _currencySymbol,
-                            onChanged: _updateCurrency,
-                            items: _currencyOptions
-                                .map(
-                                  (currency) => DropdownMenuItem<String>(
-                                    value: currency,
-                                    child: Text(currency),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            onPressed: () => _markCompleted(!widget.list.isCompleted),
-                            child: Text(
-                              widget.list.isCompleted ? 'Re-open' : 'Complete',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                      )
+                    else
+                      for (var i = 0; i < items.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _buildListItemRow(context, i),
+                        ),
+                    const SizedBox(height: 8),
                   ],
-                )
-              : ListView(
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                            onPressed: () => Navigator.pop(context),
-                            color: theme.colorScheme.onSurface,
+                    IconButton.filled(
+                      onPressed: () => Navigator.pop(context),
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surface,
+                        foregroundColor: theme.colorScheme.onSurface,
+                      ),
+                      tooltip: 'Back',
+                      icon: const Icon(LucideIcons.chevron_left, size: 22),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _totalPriceController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Total price',
+                          filled: true,
+                          fillColor: fillColor,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
                           ),
-                        ],
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        onChanged: _updateTotalPrice,
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatDate(widget.list.date),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: checked == items.length && items.isNotEmpty
-                                  ? theme.colorScheme.primary
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          AddItemInput(
-                            itemController: _itemController,
-                            quantityController: _quantityController,
-                            onChanged: _onItemTextChanged,
-                            onSubmit: _addFromText,
-                          ),
-                          if (_suggestions.isNotEmpty)
-                            AutocompleteDropdown(
-                              suggestions: _suggestions,
-                              onSelect: _addFromSuggestion,
-                            ),
-                        ],
+                    const SizedBox(width: 8),
+                    DropdownMenu<String>(
+                      initialSelection: _currencySymbol,
+                      onSelected: _updateCurrency,
+                      width: 96,
+                      inputDecorationTheme: InputDecorationTheme(
+                        filled: true,
+                        fillColor: fillColor,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
+                      dropdownMenuEntries: _currencyOptions
+                          .map((c) => DropdownMenuEntry<String>(
+                                value: c,
+                                label: c,
+                              ))
+                          .toList(),
                     ),
-                    const Divider(height: 1),
-                    for (var i = 0; i < items.length; i++) ...[
-                      _buildItemDropZone(i),
-                      LongPressDraggable<int>(
-                        data: i,
-                        onDragStarted: () {
-                          setState(() {
-                            _draggingItemIndex = i;
-                          });
-                        },
-                        onDragEnd: (_) {
-                          setState(() {
-                            _draggingItemIndex = null;
-                            _itemDropIndex = null;
-                          });
-                        },
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: SizedBox(
-                            width: MediaQuery.of(context).size.width,
-                            child: ShoppingListItemTile(
-                              item: items[i],
-                              onToggle: () {},
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.2,
-                          child: _buildListItemRow(context, i),
-                        ),
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 120),
-                          opacity: _draggingItemIndex == i ? 0.9 : 1,
-                          child: _buildListItemRow(context, i),
-                        ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: () => _markCompleted(!widget.list.isCompleted),
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.surface,
+                        foregroundColor: theme.colorScheme.onSurface,
                       ),
-                    ],
-                    _buildItemDropZone(items.length),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _totalPriceController,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              decoration: const InputDecoration(
-                                hintText: 'Total price',
-                              ),
-                              onChanged: _updateTotalPrice,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            value: _currencySymbol,
-                            onChanged: _updateCurrency,
-                            items: _currencyOptions
-                                .map(
-                                  (currency) => DropdownMenuItem<String>(
-                                    value: currency,
-                                    child: Text(currency),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            onPressed: () => _markCompleted(!widget.list.isCompleted),
-                            child: Text(
-                              widget.list.isCompleted ? 'Re-open' : 'Complete',
-                            ),
-                          ),
-                        ],
+                      tooltip: widget.list.isCompleted ? 'Re-open' : 'Complete',
+                      icon: Icon(
+                        widget.list.isCompleted
+                            ? LucideIcons.rotate_ccw
+                            : LucideIcons.circle_check,
+                        size: 22,
                       ),
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -13,30 +13,75 @@ class ShoppingListItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = Theme.of(context).colorScheme.onSurface;
-    return ListTile(
-      leading: Checkbox(
-        value: item.isChecked,
-        onChanged: (_) => onToggle(),
-      ),
-      title: Text(
-        item.name,
-        style: item.isChecked
-            ? TextStyle(
-                decoration: TextDecoration.lineThrough,
-                color: textColor.withValues(alpha: 0.4),
-              )
-            : null,
-      ),
-      trailing: item.quantity == null || item.quantity!.isEmpty
-          ? null
-          : Text(
-              item.quantity!,
-              style: item.isChecked
-                  ? TextStyle(color: textColor.withValues(alpha: 0.4))
+    final theme = Theme.of(context);
+    final dimColor = theme.colorScheme.onSurface.withValues(alpha: 0.35);
+
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: item.isChecked
+                    ? theme.colorScheme.primary
+                    : Colors.transparent,
+                border: Border.all(
+                  color: item.isChecked
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                  width: 2,
+                ),
+              ),
+              child: item.isChecked
+                  ? Icon(Icons.check, size: 14,
+                      color: theme.colorScheme.onPrimary)
                   : null,
             ),
-      onTap: onToggle,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                item.name,
+                style: item.isChecked
+                    ? theme.textTheme.bodyLarge?.copyWith(
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: dimColor,
+                        color: dimColor,
+                      )
+                    : theme.textTheme.bodyLarge,
+              ),
+            ),
+            if (item.quantity != null && item.quantity!.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: item.isChecked
+                      ? theme.colorScheme.outline.withValues(alpha: 0.15)
+                      : theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  item.quantity!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: item.isChecked
+                        ? dimColor
+                        : theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
