@@ -3,6 +3,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
+import '../../models/shopping_list_template.dart';
 import '../../services/suggestion_service.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
@@ -12,31 +13,36 @@ import '../../widgets/shopping_list_item_tile.dart';
 
 class ShoppingListViewPage extends StatefulWidget {
   final ShoppingList list;
+  final Future<void> Function(String name, List<ShoppingListItem> items)?
+      onSaveTemplate;
+  final List<ShoppingListTemplate> existingTemplates;
 
-  const ShoppingListViewPage({super.key, required this.list});
+  const ShoppingListViewPage({
+    super.key,
+    required this.list,
+    this.onSaveTemplate,
+    this.existingTemplates = const [],
+  });
 
   @override
   State<ShoppingListViewPage> createState() => _ShoppingListViewPageState();
 }
 
-class _ShoppingListViewPageState extends State<ShoppingListViewPage>
-    with SingleTickerProviderStateMixin {
+class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalPriceController = TextEditingController();
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
-  final GlobalKey _menuIconKey = GlobalKey();
-  late final AnimationController _menuRotation;
+  late final Set<String> _templateSignatures;
 
   @override
   void initState() {
     super.initState();
     _totalPriceController.text = widget.list.totalPrice ?? '';
-    _menuRotation = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
+    _templateSignatures = widget.existingTemplates
+        .map((template) => _signatureFromTemplateItems(template.items))
+        .toSet();
   }
 
   @override
@@ -44,13 +50,24 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
-    _menuRotation.dispose();
     super.dispose();
   }
 
   String _nextId() {
     return DateTime.now().microsecondsSinceEpoch.toString();
   }
+
+  String _signatureFromItems(List<ShoppingListItem> items) => items
+      .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
+      .join('||');
+
+  String _signatureFromTemplateItems(List<ShoppingListTemplateItem> items) => items
+      .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
+      .join('||');
+
+  bool get _canSaveTemplate =>
+      widget.list.items.isNotEmpty &&
+      !_templateSignatures.contains(_signatureFromItems(widget.list.items));
 
   void _onItemTextChanged(String value) {
     setState(() {
@@ -110,50 +127,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
     setState(() => _suggestions = []);
   }
 
-  Future<void> _openMenu() async {
-    final renderBox =
-        _menuIconKey.currentContext!.findRenderObject() as RenderBox;
-    final iconOffset = renderBox.localToGlobal(Offset.zero);
-    final iconSize = renderBox.size;
-    final screenSize = MediaQuery.of(context).size;
-    _menuRotation.forward();
-    final result = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        iconOffset.dx,
-        iconOffset.dy + iconSize.height,
-        screenSize.width - iconOffset.dx - iconSize.width,
-        screenSize.height - iconOffset.dy - iconSize.height,
-      ),
-      items: [
-        const PopupMenuItem(value: 'save', child: Text('Save')),
-        const PopupMenuItem(value: 'save_template', child: Text('Save as template')),
-        const PopupMenuItem(value: 'from_template', child: Text('From template')),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: 'back', child: Text('Back')),
-      ],
-    );
-    _menuRotation.reverse();
-    if (!mounted) return;
-    switch (result) {
-      case 'save':
-      case 'back':
-        Navigator.pop(context);
-        return;
-      case 'save_template':
-      case 'from_template':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Coming soon'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      case null:
-        return;
-    }
-  }
-
   void _updateTotalPrice(String value) {
     widget.list.totalPrice = value.trim().isEmpty ? null : value.trim();
   }
@@ -200,6 +173,50 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
         );
       });
     }
+  }
+
+  Future<void> _saveAsTemplate() async {
+    if (widget.onSaveTemplate == null || !_canSaveTemplate) {
+      return;
+    }
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save as template'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Template name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || name == null || name.isEmpty) {
+      return;
+    }
+    await widget.onSaveTemplate!(
+      name,
+      List<ShoppingListItem>.from(widget.list.items),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _templateSignatures.add(_signatureFromItems(widget.list.items));
+    });
   }
 
   String get _currencySymbol => widget.list.currencySymbol;
@@ -256,26 +273,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
               Expanded(
                 child: ListView(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: _openMenu,
-                            child: RotationTransition(
-                              turns: Tween(begin: 0.0, end: 0.5)
-                                  .animate(_menuRotation),
-                              child: Icon(
-                                key: _menuIconKey,
-                                LucideIcons.menu,
-                                size: 20,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                       child: Column(
@@ -334,6 +331,22 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage>
                         ),
                     const SizedBox(height: 8),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    onPressed: _canSaveTemplate ? _saveAsTemplate : null,
+                    tooltip: 'Save as template',
+                    icon: Icon(
+                      LucideIcons.star,
+                      color: _canSaveTemplate
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                    ),
+                  ),
                 ),
               ),
               Padding(

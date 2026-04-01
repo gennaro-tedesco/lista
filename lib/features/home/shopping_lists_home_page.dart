@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../app/themes.dart';
 import '../../models/shopping_list.dart';
+import '../../models/shopping_list_item.dart';
+import '../../models/shopping_list_template.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
 import '../view_list/shopping_list_view_page.dart';
@@ -14,6 +15,7 @@ class ShoppingListsHomePage extends StatefulWidget {
 
 class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
+  final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
   static const _labelColors = [
     Color(0xFFE57373),
@@ -35,11 +37,61 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   Future<void> _openCreateList() async {
     final result = await Navigator.push<ShoppingList>(
       context,
-      MaterialPageRoute(builder: (_) => const CreateListPage()),
+      MaterialPageRoute(
+        builder: (_) => CreateListPage(
+          onSaveTemplate: _saveTemplate,
+          existingTemplates: _templates,
+        ),
+      ),
     );
     if (result != null) {
       setState(() => _lists.add(result));
     }
+  }
+
+  Future<void> _openCreateListFromTemplate(ShoppingListTemplate template) async {
+    final result = await Navigator.push<ShoppingList>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateListPage(
+          onSaveTemplate: _saveTemplate,
+          existingTemplates: _templates,
+          initialItems: template.items
+              .asMap()
+              .entries
+              .map(
+                (entry) => ShoppingListItem(
+                  id: '${DateTime.now().microsecondsSinceEpoch}-${entry.key}',
+                  name: entry.value.name,
+                  quantity: entry.value.quantity,
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+    if (result != null) {
+      setState(() => _lists.add(result));
+    }
+  }
+
+  Future<void> _saveTemplate(String name, List<ShoppingListItem> items) async {
+    setState(() {
+      _templates.add(
+        ShoppingListTemplate(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          name: name,
+          items: items
+              .map(
+                (item) => ShoppingListTemplateItem(
+                  name: item.name,
+                  quantity: item.quantity,
+                ),
+              )
+              .toList(),
+        ),
+      );
+    });
   }
 
   Color _labelColor(String label) {
@@ -137,9 +189,124 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   Future<void> _viewList(ShoppingList list) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => ShoppingListViewPage(list: list)),
+      MaterialPageRoute(
+        builder: (_) => ShoppingListViewPage(
+          list: list,
+          onSaveTemplate: _saveTemplate,
+          existingTemplates: _templates,
+        ),
+      ),
     );
     setState(() {});
+  }
+
+  Future<void> _openTemplates() async {
+    if (_templates.isEmpty) {
+      return;
+    }
+    final template = await showDialog<ShoppingListTemplate>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Templates'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: _templates
+                  .map(
+                    (template) => Dismissible(
+                      key: ValueKey(template.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(color: Colors.transparent),
+                      secondaryBackground: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.error,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Icon(
+                          Icons.delete,
+                          color: Theme.of(context).colorScheme.onError,
+                        ),
+                      ),
+                      onDismissed: (_) {
+                        setDialogState(() {
+                          _templates.remove(template);
+                        });
+                        if (_templates.isEmpty && mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: ListTile(
+                        title: Text(template.name),
+                        subtitle: Text(
+                          '${template.items.length} item${template.items.length == 1 ? '' : 's'}',
+                        ),
+                        onLongPress: () async {
+                          final controller =
+                              TextEditingController(text: template.name);
+                          final renamed = await showDialog<String>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Rename template'),
+                              content: TextField(
+                                controller: controller,
+                                autofocus: true,
+                                textCapitalization: TextCapitalization.sentences,
+                                decoration: const InputDecoration(
+                                  hintText: 'Template name',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(
+                                    context,
+                                    controller.text.trim(),
+                                  ),
+                                  child: const Text('Save'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (renamed != null && renamed.isNotEmpty) {
+                            setDialogState(() {
+                              final index = _templates.indexWhere(
+                                (item) => item.id == template.id,
+                              );
+                              if (index != -1) {
+                                _templates[index] = ShoppingListTemplate(
+                                  id: template.id,
+                                  name: renamed,
+                                  items: template.items,
+                                );
+                              }
+                            });
+                          }
+                        },
+                        onTap: () => Navigator.pop(context, template),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted || template == null) {
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+    setState(() {});
+    await _openCreateListFromTemplate(template);
   }
 
   Future<void> _openSettings() async {
@@ -195,17 +362,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     }
   }
 
-  Future<bool> _handleActiveListSwipe(
-      DismissDirection direction, ShoppingList list) async {
-    if (direction == DismissDirection.startToEnd) {
-      _toggleCompleted(list);
-    } else {
-      _deleteList(list);
-    }
-    return false;
-  }
-
-  Future<bool> _handleCompletedListSwipe(
+  Future<bool> _handleListSwipe(
       DismissDirection direction, ShoppingList list) async {
     if (direction == DismissDirection.startToEnd) {
       _toggleCompleted(list);
@@ -285,7 +442,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                   ),
                                 ),
                                 confirmDismiss: (direction) =>
-                                    _handleCompletedListSwipe(direction, list),
+                                    _handleListSwipe(direction, list),
                                 child: _buildListCard(context, list),
                               ),
                             ),
@@ -383,7 +540,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                               ),
                             ),
                             confirmDismiss: (direction) =>
-                                _handleActiveListSwipe(direction, list),
+                                _handleListSwipe(direction, list),
                             child: _buildListCard(context, list),
                           ),
                         ),
@@ -393,37 +550,61 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 completedSection,
               ],
             ),
-      floatingActionButton: SizedBox(
-        width: 84,
-        height: 56,
-        child: FloatingActionButton(
-          onPressed: _openCreateList,
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          foregroundColor: Theme.of(context).colorScheme.onSurface,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(Icons.add, size: 18),
-              const SizedBox(width: 4),
-              SizedBox(
-                width: 35,
-                height: 35,
-                child: OverflowBox(
-                  maxWidth: 88,
-                  maxHeight: 88,
-                  child: SizedBox(
-                    width: 45,
-                    height: 45,
-                    child: Image.asset(
-                      'images/logo.png',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Opacity(
+              opacity: _templates.isNotEmpty ? 1.0 : 0.35,
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: FloatingActionButton(
+                  heroTag: 'templates',
+                  onPressed: _templates.isNotEmpty ? _openTemplates : null,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  child: Image.asset('images/templates.png', width: 32, height: 32),
                 ),
               ),
-            ],
-          ),
+            ),
+            SizedBox(
+              width: 84,
+              height: 56,
+              child: FloatingActionButton(
+                heroTag: 'new_list',
+                onPressed: _openCreateList,
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add, size: 18),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: 35,
+                      height: 35,
+                      child: OverflowBox(
+                        maxWidth: 88,
+                        maxHeight: 88,
+                        child: SizedBox(
+                          width: 45,
+                          height: 45,
+                          child: Image.asset(
+                            'images/logo.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

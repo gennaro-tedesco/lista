@@ -60,6 +60,7 @@ flutter:
   assets:
     - images/home_title.png
     - images/logo.png
+    - images/templates.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
