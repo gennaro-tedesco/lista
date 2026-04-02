@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
+import '../stats/spending_stats_page.dart';
 import '../view_list/shopping_list_view_page.dart';
+
+const _uuid = Uuid();
 
 class ShoppingListsHomePage extends StatefulWidget {
   const ShoppingListsHomePage({super.key});
@@ -59,14 +63,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           onSaveTemplate: _saveTemplate,
           existingTemplates: _templates,
           initialItems: template.items
-              .asMap()
-              .entries
               .map(
-                (entry) => ShoppingListItem(
-                  id: '${DateTime.now().microsecondsSinceEpoch}-${entry.key}',
-                  name: entry.value.name,
-                  quantity: entry.value.quantity,
-                  category: entry.value.category,
+                (item) => ShoppingListItem(
+                  id: _uuid.v4(),
+                  name: item.name,
+                  quantity: item.quantity,
+                  category: item.category,
                 ),
               )
               .toList(),
@@ -82,7 +84,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {
       _templates.add(
         ShoppingListTemplate(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          id: _uuid.v4(),
           name: name,
           items: items
               .map(
@@ -323,6 +325,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {});
   }
 
+  Future<void> _openStats() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => SpendingStatsPage(lists: _lists)),
+    );
+    setState(() {});
+  }
+
   void _deleteList(ShoppingList list) {
     setState(() {
       _lists.remove(list);
@@ -417,7 +427,29 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text('Completed', style: theme.textTheme.titleSmall),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Completed',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: IconButton.filled(
+                            onPressed: _openStats,
+                            style: IconButton.styleFrom(
+                              backgroundColor: theme.colorScheme.surface,
+                              foregroundColor: theme.colorScheme.secondary,
+                            ),
+                            tooltip: 'Statistics',
+                            icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Flexible(
@@ -653,12 +685,14 @@ class _EditLabelsDialog extends StatefulWidget {
 
 class _EditLabelsDialogState extends State<_EditLabelsDialog> {
   late final List<String> _selectedLabels;
+  late final List<String> _allLabels;
   final TextEditingController _newLabelController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _selectedLabels = List<String>.from(widget.selectedLabels);
+    _allLabels = ({...widget.availableLabels, ..._selectedLabels}).toList();
   }
 
   @override
@@ -685,6 +719,9 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
     if (label.isEmpty) return;
     widget.onLabelCreated(label);
     setState(() {
+      if (!_allLabels.contains(label)) {
+        _allLabels.add(label);
+      }
       if (!_selectedLabels.contains(label)) {
         _selectedLabels.add(label);
       }
@@ -695,10 +732,6 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final allLabels = ({
-      ...widget.availableLabels,
-      ..._selectedLabels,
-    }).toList();
     return AlertDialog(
       title: const Text('Labels'),
       content: SizedBox(
@@ -707,11 +740,11 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (allLabels.isNotEmpty) ...[
+              if (_allLabels.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: allLabels.map((label) {
+                  children: _allLabels.map((label) {
                     final selected = _selectedLabels.contains(label);
                     final color = widget.colorForLabel(label);
                     return GestureDetector(

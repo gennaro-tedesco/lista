@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../../services/suggestion_service.dart';
+import '../../utils/category_utils.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
+
+const _uuid = Uuid();
 
 class CreateListPage extends StatefulWidget {
   final Future<void> Function(String name, List<ShoppingListItem> items)?
@@ -34,7 +38,6 @@ class _CreateListPageState extends State<CreateListPage> {
   final TextEditingController _quantityController = TextEditingController();
   final List<ShoppingListItem> _items = [];
   List<FoodSuggestion> _suggestions = [];
-  int _idCounter = 0;
   late final Set<String> _templateSignatures;
   final Set<String> _collapsedCategories = {};
 
@@ -58,7 +61,6 @@ class _CreateListPageState extends State<CreateListPage> {
             )
             .toList(),
       );
-      _idCounter = _items.length;
     }
   }
 
@@ -67,11 +69,6 @@ class _CreateListPageState extends State<CreateListPage> {
     _itemController.dispose();
     _quantityController.dispose();
     super.dispose();
-  }
-
-  String _nextId() {
-    _idCounter++;
-    return _idCounter.toString();
   }
 
   String _signatureFromItems(List<ShoppingListItem> items) => items
@@ -153,19 +150,6 @@ class _CreateListPageState extends State<CreateListPage> {
     });
   }
 
-  IconData _categoryIcon(String category) => switch (category) {
-    'Fruit' => LucideIcons.apple,
-    'Vegetable' => LucideIcons.carrot,
-    'Drinks' => LucideIcons.glass_water,
-    'Meat' => LucideIcons.beef,
-    'Fish & Seafood' => LucideIcons.fish,
-    'Dairy' => LucideIcons.milk,
-    'Bakery' => LucideIcons.croissant,
-    'Pantry' => LucideIcons.package,
-    'Other' => LucideIcons.package,
-    _ => LucideIcons.package,
-  };
-
   void _onItemTextChanged(String value) {
     setState(() {
       _suggestions = SuggestionService.getSuggestions(value);
@@ -176,7 +160,7 @@ class _CreateListPageState extends State<CreateListPage> {
     setState(() {
       _items.add(
         ShoppingListItem(
-          id: _nextId(),
+          id: _uuid.v4(),
           name: suggestion.name,
           quantity: _quantityController.text.trim().isEmpty
               ? null
@@ -196,7 +180,7 @@ class _CreateListPageState extends State<CreateListPage> {
     setState(() {
       _items.add(
         ShoppingListItem(
-          id: _nextId(),
+          id: _uuid.v4(),
           name: text,
           quantity: _quantityController.text.trim().isEmpty
               ? null
@@ -241,13 +225,12 @@ class _CreateListPageState extends State<CreateListPage> {
     if (!mounted || template == null) return;
     setState(() {
       _items.clear();
-      _idCounter = 0;
       _collapsedCategories.clear();
       _items.addAll(
         template.items
             .map(
               (item) => ShoppingListItem(
-                id: _nextId(),
+                id: _uuid.v4(),
                 name: item.name,
                 quantity: item.quantity,
                 category: item.category,
@@ -260,7 +243,7 @@ class _CreateListPageState extends State<CreateListPage> {
 
   void _saveList() {
     final list = ShoppingList(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: _uuid.v4(),
       date: _selectedDate,
       items: List.from(_items),
     );
@@ -325,6 +308,7 @@ class _CreateListPageState extends State<CreateListPage> {
           .map(
             (cat) => PopupMenuItem<String>(
               value: cat,
+              height: 30,
               child: Row(
                 children: [
                   if ((item.category ?? 'Other') == cat)
@@ -395,104 +379,6 @@ class _CreateListPageState extends State<CreateListPage> {
     );
   }
 
-  Widget _buildCategorySection(
-    BuildContext context,
-    String category,
-    List<ShoppingListItem> items,
-  ) {
-    final theme = Theme.of(context);
-    final checked = items.where((i) => i.isChecked).length;
-    final total = items.length;
-    final isCollapsed = _collapsedCategories.contains(category);
-    final allDone = total > 0 && checked == total;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: GestureDetector(
-              onTap: () => _toggleCollapse(category),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _categoryIcon(category),
-                      size: 18,
-                      color: allDone
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      category,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: allDone
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (total > 0)
-                      if (allDone)
-                        Row(
-                          children: [
-                            Icon(
-                              LucideIcons.circle_check,
-                              size: 14,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$checked/$total',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          '$checked/$total',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    const Spacer(),
-                    Icon(
-                      isCollapsed
-                          ? LucideIcons.chevron_right
-                          : LucideIcons.chevron_down,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (!isCollapsed)
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
-                child: _buildItemRow(context, item, withHandle: true),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -539,7 +425,14 @@ class _CreateListPageState extends State<CreateListPage> {
                     if (_hasCategories) ...[
                       const SizedBox(height: 4),
                       for (final entry in _groupedItems.entries)
-                        _buildCategorySection(context, entry.key, entry.value),
+                        CategorySection(
+                          category: entry.key,
+                          items: entry.value,
+                          isCollapsed: _collapsedCategories.contains(entry.key),
+                          onToggleCollapse: () => _toggleCollapse(entry.key),
+                          itemBuilder: (ctx, item) =>
+                              _buildItemRow(ctx, item, withHandle: true),
+                        ),
                       const SizedBox(height: 8),
                     ] else if (_items.isNotEmpty) ...[
                       const SizedBox(height: 8),
