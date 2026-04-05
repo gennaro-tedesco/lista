@@ -207,50 +207,6 @@ class _CreateListPageState extends State<CreateListPage> {
     setState(() => _suggestions = []);
   }
 
-  Future<void> _selectTemplate() async {
-    if (widget.existingTemplates.isEmpty) return;
-    final template = await showDialog<ShoppingListTemplate>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Templates'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: widget.existingTemplates
-                .map(
-                  (t) => ListTile(
-                    title: Text(t.name),
-                    subtitle: Text(
-                      '${t.items.length} item${t.items.length == 1 ? '' : 's'}',
-                    ),
-                    onTap: () => Navigator.pop(context, t),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      ),
-    );
-    if (!mounted || template == null) return;
-    setState(() {
-      _items.clear();
-      _collapsedCategories.clear();
-      _items.addAll(
-        template.items
-            .map(
-              (item) => ShoppingListItem(
-                id: _uuid.v4(),
-                name: item.name,
-                quantity: item.quantity,
-                category: item.category,
-              ),
-            )
-            .toList(),
-      );
-    });
-  }
-
   void _saveList() {
     final list = ShoppingList(
       id: _uuid.v4(),
@@ -297,6 +253,55 @@ class _CreateListPageState extends State<CreateListPage> {
     setState(() {
       _templateSignatures.add(_signatureFromItems(_items));
     });
+    _showTemplateSavedConfirmation(name);
+  }
+
+  Future<void> _showTemplateSavedConfirmation(String name) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Template saved',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(
+            opacity: animation,
+            child: SafeArea(
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'Saved $name as template!',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    if (navigator.mounted && navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   Future<void> _showCategoryMenu(
@@ -637,20 +642,6 @@ class _CreateListPageState extends State<CreateListPage> {
                       tooltip: 'Back',
                       icon: const Icon(LucideIcons.chevron_left, size: 22),
                     ),
-                    if (widget.existingTemplates.isNotEmpty)
-                      IconButton.filled(
-                        onPressed: _selectTemplate,
-                        style: IconButton.styleFrom(
-                          backgroundColor: theme.colorScheme.surface,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Templates',
-                        icon: Image.asset(
-                          'images/templates.png',
-                          width: 48,
-                          height: 48,
-                        ),
-                      ),
                     IconButton.filled(
                       onPressed: _saveList,
                       style: IconButton.styleFrom(

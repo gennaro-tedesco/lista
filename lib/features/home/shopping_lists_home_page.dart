@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
@@ -21,6 +22,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
+  bool _isCreateMenuOpen = false;
   static const _labelColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -39,6 +41,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       _lists.where((list) => list.isCompleted).toList();
 
   Future<void> _openCreateList() async {
+    setState(() => _isCreateMenuOpen = false);
     final result = await Navigator.push<ShoppingList>(
       context,
       MaterialPageRoute(
@@ -56,6 +59,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   Future<void> _openCreateListFromTemplate(
     ShoppingListTemplate template,
   ) async {
+    setState(() => _isCreateMenuOpen = false);
     final result = await Navigator.push<ShoppingList>(
       context,
       MaterialPageRoute(
@@ -207,6 +211,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _openTemplates() async {
+    setState(() => _isCreateMenuOpen = false);
     if (_templates.isEmpty) {
       return;
     }
@@ -315,6 +320,16 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     }
     setState(() {});
     await _openCreateListFromTemplate(template);
+  }
+
+  void _handleCreateButton() {
+    if (_templates.isEmpty) {
+      _openCreateList();
+      return;
+    }
+    setState(() {
+      _isCreateMenuOpen = !_isCreateMenuOpen;
+    });
   }
 
   Future<void> _openSettings() async {
@@ -520,122 +535,188 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           const SizedBox(width: 4),
         ],
       ),
-      body: _lists.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: GestureDetector(
+        onTap: () {
+          if (_isCreateMenuOpen) {
+            setState(() => _isCreateMenuOpen = false);
+          }
+        },
+        behavior: HitTestBehavior.translucent,
+        child: _lists.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.shopping_basket_outlined,
+                      size: 64,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.35,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No lists yet',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tap + to create one',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              )
+            : Column(
                 children: [
-                  Icon(
-                    Icons.shopping_basket_outlined,
-                    size: 64,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.35,
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        12,
+                        16,
+                        _completedLists.isEmpty ? 96 : 16,
+                      ),
+                      children: [
+                        for (final list in _activeLists)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Dismissible(
+                              key: ValueKey(list.id),
+                              background: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: Icon(
+                                  Icons.check,
+                                  color: theme.colorScheme.onSecondary,
+                                ),
+                              ),
+                              secondaryBackground: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.error,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: Icon(
+                                  Icons.delete,
+                                  color: theme.colorScheme.onError,
+                                ),
+                              ),
+                              confirmDismiss: (direction) =>
+                                  _handleListSwipe(direction, list),
+                              child: _buildListCard(context, list),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No lists yet',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('Tap + to create one', style: theme.textTheme.bodySmall),
+                  completedSection,
                 ],
               ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      _completedLists.isEmpty ? 96 : 16,
-                    ),
-                    children: [
-                      for (final list in _activeLists)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Dismissible(
-                            key: ValueKey(list.id),
-                            background: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Icon(
-                                Icons.check,
-                                color: theme.colorScheme.onSecondary,
-                              ),
-                            ),
-                            secondaryBackground: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.error,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Icon(
-                                Icons.delete,
-                                color: theme.colorScheme.onError,
-                              ),
-                            ),
-                            confirmDismiss: (direction) =>
-                                _handleListSwipe(direction, list),
-                            child: _buildListCard(context, list),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                completedSection,
-              ],
-            ),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      floatingActionButton: SizedBox(
+        width: 180,
+        height: 164,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
           children: [
-            Opacity(
-              opacity: _templates.isNotEmpty ? 1.0 : 0.35,
-              child: SizedBox(
-                width: 56,
-                height: 56,
-                child: FloatingActionButton(
-                  heroTag: 'templates',
-                  onPressed: _templates.isNotEmpty ? _openTemplates : null,
-                  backgroundColor: Theme.of(context).colorScheme.surface,
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
-                  child: Image.asset(
-                    'images/templates.png',
-                    width: 32,
-                    height: 32,
+            if (_templates.isNotEmpty)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                bottom: _isCreateMenuOpen ? 140 : 20,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: _isCreateMenuOpen ? 1 : 0.7,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 140),
+                    opacity: _isCreateMenuOpen ? 1 : 0,
+                    child: IgnorePointer(
+                      ignoring: !_isCreateMenuOpen,
+                      child: SizedBox(
+                        width: 84,
+                        height: 56,
+                        child: FloatingActionButton(
+                          heroTag: 'from_template',
+                          onPressed: _openTemplates,
+                          backgroundColor: theme.colorScheme.surface,
+                          foregroundColor: theme.colorScheme.onSurface,
+                          child: const Icon(LucideIcons.star, size: 22),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            if (_templates.isNotEmpty)
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                bottom: _isCreateMenuOpen ? 72 : 20,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: _isCreateMenuOpen ? 1 : 0.7,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 140),
+                    opacity: _isCreateMenuOpen ? 1 : 0,
+                    child: IgnorePointer(
+                      ignoring: !_isCreateMenuOpen,
+                      child: SizedBox(
+                        width: 84,
+                        height: 56,
+                        child: FloatingActionButton(
+                          heroTag: 'new_list_option',
+                          onPressed: _openCreateList,
+                          backgroundColor: theme.colorScheme.surface,
+                          foregroundColor: theme.colorScheme.onSurface,
+                          child: SizedBox(
+                            width: 35,
+                            height: 35,
+                            child: OverflowBox(
+                              maxWidth: 88,
+                              maxHeight: 88,
+                              child: SizedBox(
+                                width: 45,
+                                height: 45,
+                                child: Image.asset(
+                                  'images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             SizedBox(
               width: 84,
               height: 56,
               child: FloatingActionButton(
                 heroTag: 'new_list',
-                onPressed: _openCreateList,
-                backgroundColor: Theme.of(context).colorScheme.surface,
-                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                onPressed: _handleCreateButton,
+                backgroundColor: theme.colorScheme.surface,
+                foregroundColor: theme.colorScheme.onSurface,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(Icons.add, size: 18),
+                    Icon(_isCreateMenuOpen ? Icons.close : Icons.add, size: 18),
                     const SizedBox(width: 4),
                     SizedBox(
                       width: 35,
