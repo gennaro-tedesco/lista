@@ -30,6 +30,22 @@ class SuggestionService {
     ].take(limit).toList();
   }
 
+  static String? categoryFor(String value) {
+    final query = value.toLowerCase().trim();
+    if (query.isEmpty) return null;
+    if (query.contains('juice')) return 'Drinks';
+
+    final normalizedQuery = _normalize(query);
+    for (final item in foodSuggestions) {
+      final name = item.name.toLowerCase();
+      if (name == query || _normalize(name) == normalizedQuery) {
+        return item.category;
+      }
+    }
+
+    return null;
+  }
+
   static String _normalize(String value) {
     final parts = value.split(' ');
     if (parts.isEmpty) return value;

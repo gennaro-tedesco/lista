@@ -61,8 +61,8 @@ class AppearanceSettingsPage extends StatelessWidget {
                       ),
                       Slider(
                         min: 0.85,
-                        max: 1.35,
-                        divisions: 10,
+                        max: 1.80,
+                        divisions: 19,
                         value: uiFontScaleNotifier.value,
                         onChanged: (value) {
                           uiFontScaleNotifier.value = value;

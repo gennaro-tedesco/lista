@@ -1,24 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'appearance_settings_page.dart';
 
-class SettingsPage extends StatefulWidget {
+const _appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
+
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
-
-  @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  String? _version;
-
-  @override
-  void initState() {
-    super.initState();
-    PackageInfo.fromPlatform().then((info) {
-      if (mounted) setState(() => _version = info.version);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,17 +31,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 const Divider(height: 1),
                 ListTile(
                   title: const Text('About'),
-                  trailing: _version == null
-                      ? null
-                      : Text(
-                          'v$_version',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
+                  trailing: Text(
+                    _appVersion,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
                 const Divider(height: 1),
                 const ListTile(title: Text('Account'), enabled: false),

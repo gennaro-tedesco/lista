@@ -16,6 +16,12 @@ import '../../widgets/shopping_list_item_tile.dart';
 
 const _uuid = Uuid();
 
+class _DraggedItem {
+  final String id;
+
+  const _DraggedItem(this.id);
+}
+
 class ShoppingListViewPage extends StatefulWidget {
   final ShoppingList list;
   final Future<void> Function(String name, List<ShoppingListItem> items)?
@@ -42,6 +48,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   late final Set<String> _templateSignatures;
   final Set<String> _collapsedCategories = {};
   bool _priceError = false;
+  final Map<String, bool> _dropAfterByItemId = {};
+  String? _previewAnchorItemId;
+  bool? _previewPlaceAfter;
 
   @override
   void initState() {
@@ -119,7 +128,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
 
   void _onItemTextChanged(String value) {
     setState(() {
-      _suggestions = SuggestionService.getSuggestions(value);
+      _suggestions = [];
     });
   }
 
@@ -152,6 +161,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
+          category: SuggestionService.categoryFor(text),
         ),
       );
       _suggestions = [];
@@ -292,6 +302,66 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _changeCategory(item.id, result == 'Other' ? null : result);
   }
 
+  void _moveItem(
+    String itemId, {
+    required String? targetCategory,
+    required String anchorItemId,
+    required bool placeAfter,
+  }) {
+    if (itemId == anchorItemId) return;
+    setState(() {
+      final items = widget.list.items;
+      final sourceIndex = items.indexWhere((item) => item.id == itemId);
+      final anchorIndexBeforeMove = items.indexWhere(
+        (item) => item.id == anchorItemId,
+      );
+      if (sourceIndex == -1 || anchorIndexBeforeMove == -1) return;
+
+      final movingItem = items.removeAt(sourceIndex);
+      movingItem.category = targetCategory == 'Other' ? null : targetCategory;
+
+      final anchorIndex = items.indexWhere((item) => item.id == anchorItemId);
+      if (anchorIndex == -1) {
+        items.add(movingItem);
+        return;
+      }
+
+      final insertIndex = placeAfter ? anchorIndex + 1 : anchorIndex;
+      items.insert(insertIndex, movingItem);
+    });
+  }
+
+  void _updateDropPosition(BuildContext context, String anchorItemId, Offset offset) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox) return;
+    final local = box.globalToLocal(offset);
+    final placeAfter = local.dy > box.size.height / 2;
+    if (_dropAfterByItemId[anchorItemId] == placeAfter &&
+        _previewAnchorItemId == anchorItemId &&
+        _previewPlaceAfter == placeAfter) {
+      return;
+    }
+    setState(() {
+      _dropAfterByItemId[anchorItemId] = placeAfter;
+      _previewAnchorItemId = anchorItemId;
+      _previewPlaceAfter = placeAfter;
+    });
+  }
+
+  void _clearDropPosition(String anchorItemId) {
+    if (!_dropAfterByItemId.containsKey(anchorItemId) &&
+        _previewAnchorItemId != anchorItemId) {
+      return;
+    }
+    setState(() {
+      _dropAfterByItemId.remove(anchorItemId);
+      if (_previewAnchorItemId == anchorItemId) {
+        _previewAnchorItemId = null;
+        _previewPlaceAfter = null;
+      }
+    });
+  }
+
   Widget _categoryPicker(BuildContext context, ShoppingListItem item) {
     final theme = Theme.of(context);
     return GestureDetector(
@@ -312,9 +382,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   Widget _buildItemRow(
     BuildContext context,
     ShoppingListItem item, {
+    required String category,
     bool withHandle = false,
   }) {
     final theme = Theme.of(context);
+
     return Dismissible(
       key: ValueKey(item.id),
       background: Container(color: Colors.transparent),
@@ -329,13 +401,97 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => _deleteItem(item.id),
-      child: GestureDetector(
-        onLongPress: () => _editItem(item.id),
-        child: ShoppingListItemTile(
-          item: item,
-          onToggle: () => _toggle(item.id),
-          leading: withHandle ? _categoryPicker(context, item) : null,
-        ),
+      child: DragTarget<_DraggedItem>(
+        onWillAcceptWithDetails: (details) => details.data.id != item.id,
+        onMove: (details) {
+          _updateDropPosition(context, item.id, details.offset);
+          _moveItem(
+            details.data.id,
+            targetCategory: category,
+            anchorItemId: item.id,
+            placeAfter: _dropAfterByItemId[item.id] ?? false,
+          );
+        },
+        onLeave: (data) => _clearDropPosition(item.id),
+        onAcceptWithDetails: (details) => _clearDropPosition(item.id),
+        builder: (context, candidates, rejected) {
+          final isActive = candidates.isNotEmpty;
+          final placeAfter = _dropAfterByItemId[item.id] ?? false;
+          final tile = AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border(
+                top: placeAfter || !isActive
+                    ? BorderSide.none
+                    : BorderSide(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                        width: 2,
+                      ),
+                bottom: isActive && placeAfter
+                    ? BorderSide(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                        width: 2,
+                      )
+                    : BorderSide.none,
+              ),
+            ),
+            child: ShoppingListItemTile(
+              item: item,
+              onToggle: () => _toggle(item.id),
+              onNameTap: () => _editItem(item.id),
+              leading: withHandle ? _categoryPicker(context, item) : null,
+            ),
+          );
+
+          return LongPressDraggable<_DraggedItem>(
+            data: _DraggedItem(item.id),
+            axis: Axis.vertical,
+            onDragStarted: () => _dismissSuggestions(),
+            onDragEnd: (_) {
+              _clearDropPosition(item.id);
+              _previewAnchorItemId = null;
+              _previewPlaceAfter = null;
+            },
+            onDraggableCanceled: (velocity, offset) =>
+                _clearDropPosition(item.id),
+            feedback: Material(
+              color: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width - 40,
+                ),
+                child: Opacity(
+                  opacity: 0.92,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ShoppingListItemTile(
+                      item: item,
+                      onToggle: () {},
+                      onNameTap: () {},
+                      leading: withHandle ? _categoryPicker(context, item) : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: tile,
+          );
+        },
       ),
     );
   }
@@ -406,7 +562,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                           isCollapsed: _collapsedCategories.contains(entry.key),
                           onToggleCollapse: () => _toggleCollapse(entry.key),
                           itemBuilder: (ctx, item) =>
-                              _buildItemRow(ctx, item, withHandle: true),
+                              _buildItemRow(
+                                ctx,
+                                item,
+                                category: entry.key,
+                                withHandle: true,
+                              ),
                         ),
                       const SizedBox(height: 8),
                     ] else if (items.isEmpty)
@@ -425,7 +586,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       for (final item in items)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: _buildItemRow(context, item),
+                          child: _buildItemRow(
+                            context,
+                            item,
+                            category: item.category ?? 'Other',
+                          ),
                         ),
                     const SizedBox(height: 8),
                   ],
