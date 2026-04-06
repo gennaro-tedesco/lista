@@ -10,6 +10,7 @@ import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
+import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
@@ -190,6 +191,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black38,
       pageBuilder: (dialogContext, _, _) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _itemFocusNode.requestFocus();
+          }
+        });
         return MediaQuery.removeViewInsets(
           context: dialogContext,
           removeLeft: true,
@@ -206,25 +212,27 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   onTap: () {},
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: AddItemFields(
-                      itemController: _itemController,
-                      quantityController: _quantityController,
-                      itemFocusNode: _itemFocusNode,
-                      onChanged: _onItemTextChanged,
-                      onSubmit: () {
-                        if (_itemController.text.trim().isEmpty) return;
-                        _addFromText();
-                        Navigator.pop(dialogContext);
-                      },
-                      suggestions: _suggestions.isNotEmpty
-                          ? AutocompleteDropdown(
-                              suggestions: _suggestions,
-                              onSelect: (suggestion) {
-                                _addFromSuggestion(suggestion);
-                                Navigator.pop(dialogContext);
-                              },
-                            )
-                          : null,
+                    child: CenteredPopupShell(
+                      child: AddItemFields(
+                        itemController: _itemController,
+                        quantityController: _quantityController,
+                        itemFocusNode: _itemFocusNode,
+                        onChanged: _onItemTextChanged,
+                        onSubmit: () {
+                          if (_itemController.text.trim().isEmpty) return;
+                          _addFromText();
+                          Navigator.pop(dialogContext);
+                        },
+                        suggestions: _suggestions.isNotEmpty
+                            ? AutocompleteDropdown(
+                                suggestions: _suggestions,
+                                onSelect: (suggestion) {
+                                  _addFromSuggestion(suggestion);
+                                  Navigator.pop(dialogContext);
+                                },
+                              )
+                            : null,
+                      ),
                     ),
                   ),
                 ),
@@ -673,11 +681,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                                     : null,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 14),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       if (items.isNotEmpty) ...[
                         for (final entry in _groupedItems.entries)
                           CategorySection(

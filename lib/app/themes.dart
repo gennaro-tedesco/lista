@@ -333,6 +333,15 @@ class AppThemes {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(foregroundColor: subtext),
       ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(primary),
+        trackColor: WidgetStatePropertyAll(background),
+        trackBorderColor: WidgetStatePropertyAll(Colors.transparent),
+        thickness: const WidgetStatePropertyAll(9),
+        radius: const Radius.circular(999),
+        thumbVisibility: const WidgetStatePropertyAll(true),
+        trackVisibility: const WidgetStatePropertyAll(true),
+      ),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         elevation: 8,

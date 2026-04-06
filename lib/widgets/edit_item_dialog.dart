@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'centered_popup_shell.dart';
 
 class EditableItemData {
   final String name;
@@ -25,6 +26,16 @@ class EditItemDialog extends StatefulWidget {
 class _EditItemDialogState extends State<EditItemDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _quantityController;
+
+  void _submit() {
+    Navigator.pop(
+      context,
+      EditableItemData(
+        name: _nameController.text,
+        quantity: _quantityController.text,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -81,58 +92,64 @@ class _EditItemDialogState extends State<EditItemDialog> {
       ),
     );
 
-    return AlertDialog(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      title: const Text('Edit item'),
-      content: SizedBox(
-        width: 320,
-        child: Row(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      child: CenteredPopupShell(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _nameController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: pill(icon: const Icon(LucideIcons.shopping_cart)),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _nameController,
+                    autofocus: true,
+                    onSubmitted: (_) => _submit(),
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: pill(
+                      icon: const Icon(LucideIcons.shopping_cart),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 100,
+                  child: TextField(
+                    controller: _quantityController,
+                    onSubmitted: (_) => _submit(),
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: pill(icon: const Icon(LucideIcons.scale)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _quantityController,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: pill(icon: const Icon(LucideIcons.scale)),
-              ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IconButton.filled(
+                  onPressed: () => Navigator.pop(context),
+                  style: IconButton.styleFrom(
+                    backgroundColor: fillColor,
+                    foregroundColor: theme.colorScheme.onSurface,
+                  ),
+                  icon: const Icon(LucideIcons.chevron_left, size: 22),
+                ),
+                const Spacer(),
+                IconButton.filled(
+                  onPressed: _submit,
+                  style: IconButton.styleFrom(
+                    backgroundColor: fillColor,
+                    foregroundColor: theme.colorScheme.onSurface,
+                  ),
+                  icon: const Icon(LucideIcons.check, size: 22),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      actions: [
-        IconButton.filled(
-          onPressed: () => Navigator.pop(context),
-          style: IconButton.styleFrom(
-            backgroundColor: theme.colorScheme.surface,
-            foregroundColor: theme.colorScheme.onSurface,
-          ),
-          icon: const Icon(LucideIcons.chevron_left, size: 22),
-        ),
-        IconButton.filled(
-          onPressed: () => Navigator.pop(
-            context,
-            EditableItemData(
-              name: _nameController.text,
-              quantity: _quantityController.text,
-            ),
-          ),
-          style: IconButton.styleFrom(
-            backgroundColor: theme.colorScheme.surface,
-            foregroundColor: theme.colorScheme.onSurface,
-          ),
-          icon: const Icon(LucideIcons.check, size: 22),
-        ),
-      ],
     );
   }
 }

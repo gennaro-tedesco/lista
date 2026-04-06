@@ -19,7 +19,7 @@ class SpendingStatsPage extends StatefulWidget {
 class _SpendingStatsPageState extends State<SpendingStatsPage> {
   late DateTime _startDate;
   late String? _selectedCurrency;
-  GroupBy _groupBy = GroupBy.month;
+  GroupBy _groupBy = GroupBy.none;
 
   List<String> get _currencies {
     final values =

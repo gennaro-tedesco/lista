@@ -51,6 +51,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
   final List<StoredCode> _codes = [];
+  final ScrollController _scrollController = ScrollController();
   bool _isCreateMenuOpen = false;
   _Tab _tab = _Tab.home;
   static const _labelColors = [
@@ -68,6 +69,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -730,27 +737,88 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ),
               )
             : _tab == _Tab.history
-            ? ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                children: [
-                  if (_completedLists.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 80),
-                      child: Center(
-                        child: Text(
-                          'No completed lists',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+            ? Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  children: [
+                    if (_completedLists.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 80),
+                        child: Center(
+                          child: Text(
+                            'No completed lists',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  else
-                    for (final list in _completedLists)
+                      )
+                    else
+                      for (final list in _completedLists)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Dismissible(
+                            key: ValueKey('completed-${list.id}'),
+                            background: Container(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondary,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Icon(
+                                Icons.undo,
+                                color: theme.colorScheme.onSecondary,
+                              ),
+                            ),
+                            secondaryBackground: Container(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.error,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Icon(
+                                Icons.delete,
+                                color: theme.colorScheme.onError,
+                              ),
+                            ),
+                            confirmDismiss: (direction) =>
+                                _handleListSwipe(direction, list),
+                            child: _buildListCard(context, list),
+                          ),
+                        ),
+                  ],
+                ),
+              )
+            : _activeLists.isEmpty
+            ? Center(
+                child: Text(
+                  'No active lists',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            : Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: true,
+                child: ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  children: [
+                    for (final list in _activeLists)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Dismissible(
-                          key: ValueKey('completed-${list.id}'),
+                          key: ValueKey(list.id),
                           background: Container(
                             decoration: BoxDecoration(
                               color: theme.colorScheme.secondary,
@@ -759,7 +827,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                             alignment: Alignment.centerLeft,
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Icon(
-                              Icons.undo,
+                              Icons.check,
                               color: theme.colorScheme.onSecondary,
                             ),
                           ),
@@ -780,55 +848,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                           child: _buildListCard(context, list),
                         ),
                       ),
-                ],
-              )
-            : _activeLists.isEmpty
-            ? Center(
-                child: Text(
-                  'No active lists',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  ],
                 ),
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                children: [
-                  for (final list in _activeLists)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Dismissible(
-                        key: ValueKey(list.id),
-                        background: Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondary,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Icon(
-                            Icons.check,
-                            color: theme.colorScheme.onSecondary,
-                          ),
-                        ),
-                        secondaryBackground: Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.error,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Icon(
-                            Icons.delete,
-                            color: theme.colorScheme.onError,
-                          ),
-                        ),
-                        confirmDismiss: (direction) =>
-                            _handleListSwipe(direction, list),
-                        child: _buildListCard(context, list),
-                      ),
-                    ),
-                ],
               ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
