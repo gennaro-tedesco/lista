@@ -1,5 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import '../../widgets/gradient_text.dart';
 import 'dart:math' as math;
 import '../../models/shopping_list.dart';
 import '../../services/spending_stats_service.dart';
@@ -308,10 +310,26 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     const labelWidth = 48.0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('images/logo.png', height: 38),
+            const SizedBox(width: 8),
+            const GradientText(
+              'Statistics',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+      body: Column(
         children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
           Row(
             children: [
               SizedBox(
@@ -398,6 +416,24 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
             const SizedBox(height: 16),
             _buildTable(context, stats, currentCurrency),
           ],
+        ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton.filled(
+                onPressed: () => Navigator.pop(context),
+                style: IconButton.styleFrom(
+                  backgroundColor: theme.colorScheme.surface,
+                  foregroundColor: theme.colorScheme.onSurface,
+                ),
+                tooltip: 'Back',
+                icon: const Icon(LucideIcons.chevron_left, size: 22),
+              ),
+            ),
+          ),
         ],
       ),
     );

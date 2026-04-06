@@ -166,6 +166,7 @@ class AppThemes {
         ),
       ),
       appBarTheme: base.appBarTheme.copyWith(
+        toolbarHeight: 80,
         titleTextStyle:
             (base.appBarTheme.titleTextStyle ?? base.textTheme.titleLarge)
                 ?.copyWith(
@@ -263,6 +264,7 @@ class AppThemes {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        toolbarHeight: 80,
         titleTextStyle: TextStyle(
           color: text,
           fontSize: 22 * fontScale,

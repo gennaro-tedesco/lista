@@ -33,7 +33,7 @@ class SuggestionService {
   static String? categoryFor(String value) {
     final query = value.toLowerCase().trim();
     if (query.isEmpty) return null;
-    if (query.contains('juice')) return 'Drinks';
+    if (query.contains('juice') || query.contains('water')) return 'Drinks';
 
     final normalizedQuery = _normalize(query);
     for (final item in foodSuggestions) {

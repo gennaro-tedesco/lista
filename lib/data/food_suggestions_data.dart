@@ -1,6 +1,8 @@
 import '../models/food_suggestion.dart';
 
 const List<FoodSuggestion> foodSuggestions = [
+  FoodSuggestion(name: 'Cod', category: 'Fish & Seafood'),
+  FoodSuggestion(name: 'Kabeljau', category: 'Fish & Seafood'),
   FoodSuggestion(name: 'Apples', category: 'Fruit'),
   FoodSuggestion(name: 'Aubergine', category: 'Vegetable'),
   FoodSuggestion(name: 'Avocado', category: 'Fruit'),
@@ -20,6 +22,7 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Cherries', category: 'Fruit'),
   FoodSuggestion(name: 'Chicken', category: 'Meat'),
   FoodSuggestion(name: 'Chocolate', category: 'Pantry'),
+  FoodSuggestion(name: 'Crisps', category: 'Pantry'),
   FoodSuggestion(name: 'Coffee', category: 'Pantry'),
   FoodSuggestion(name: 'Cola', category: 'Drinks'),
   FoodSuggestion(name: 'Corn', category: 'Vegetable'),
@@ -49,7 +52,6 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Oranges', category: 'Fruit'),
   FoodSuggestion(name: 'Pasta', category: 'Bakery'),
   FoodSuggestion(name: 'Peaches', category: 'Fruit'),
-  FoodSuggestion(name: 'Peanut Butter', category: 'Pantry'),
   FoodSuggestion(name: 'Pears', category: 'Fruit'),
   FoodSuggestion(name: 'Pepper', category: 'Vegetable'),
   FoodSuggestion(name: 'Pineapple', category: 'Fruit'),

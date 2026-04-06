@@ -6,6 +6,7 @@ import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../../repositories/list_repository.dart';
+import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
 import '../stats/spending_stats_page.dart';
@@ -21,10 +22,15 @@ class ShoppingListsHomePage extends StatefulWidget {
 }
 
 class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
+  static const _createButtonWidth = 84.0;
+  static const _createButtonHeight = 56.0;
+  static const _createButtonBottom = 72.0;
+  static const _createMenuGap = 12.0;
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
   bool _isCreateMenuOpen = false;
+  bool _showHistory = false;
   static const _labelColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -72,7 +78,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
     );
     if (result != null) {
-      setState(() => _lists.add(result));
+      setState(() {
+        _showHistory = false;
+        _lists.add(result);
+      });
       unawaited(listRepository.saveList(result));
     }
   }
@@ -101,7 +110,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
     );
     if (result != null) {
-      setState(() => _lists.add(result));
+      setState(() {
+        _showHistory = false;
+        _lists.add(result);
+      });
       unawaited(listRepository.saveList(result));
     }
   }
@@ -210,6 +222,52 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(
+    BuildContext context, {
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.zero,
+        child: Container(
+          height: 56,
+          color: selected
+              ? theme.scaffoldBackgroundColor
+              : theme.colorScheme.surface,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  icon == LucideIcons.house ? 'home' : 'history',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -452,107 +510,27 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final completedSection = _completedLists.isEmpty
-        ? const SizedBox.shrink()
-        : SafeArea(
-            top: false,
-            child: Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.45,
-              ),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Completed',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: IconButton.filled(
-                            onPressed: _openStats,
-                            style: IconButton.styleFrom(
-                              backgroundColor: theme.colorScheme.surface,
-                              foregroundColor: theme.colorScheme.secondary,
-                            ),
-                            tooltip: 'Statistics',
-                            icon: const Icon(Icons.bar_chart_rounded, size: 18),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      reverse: true,
-                      children: _completedLists
-                          .map(
-                            (list) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Dismissible(
-                                key: ValueKey('completed-${list.id}'),
-                                background: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondary,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: Icon(
-                                    Icons.undo,
-                                    color: theme.colorScheme.onSecondary,
-                                  ),
-                                ),
-                                secondaryBackground: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.error,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: Icon(
-                                    Icons.delete,
-                                    color: theme.colorScheme.onError,
-                                  ),
-                                ),
-                                confirmDismiss: (direction) =>
-                                    _handleListSwipe(direction, list),
-                                child: _buildListCard(context, list),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
 
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset(
-          'images/home_title.png',
-          height: 100,
-          fit: BoxFit.contain,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('images/logo.png', height: 38),
+            const SizedBox(width: 8),
+            GradientText(
+              _showHistory ? 'History' : 'Lista',
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
         actions: [
+          if (_showHistory)
+            IconButton(
+              icon: const Icon(Icons.bar_chart_rounded),
+              tooltip: 'Statistics',
+              onPressed: _openStats,
+            ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
@@ -595,66 +573,116 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ],
                 ),
               )
-            : Column(
+            : _showHistory
+            ? ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                 children: [
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        12,
-                        16,
-                        _completedLists.isEmpty ? 96 : 16,
-                      ),
-                      children: [
-                        for (final list in _activeLists)
+                        if (_completedLists.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Dismissible(
-                              key: ValueKey(list.id),
-                              background: Container(
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondary,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: Icon(
-                                  Icons.check,
-                                  color: theme.colorScheme.onSecondary,
+                            padding: const EdgeInsets.only(top: 80),
+                            child: Center(
+                              child: Text(
+                                'No completed lists',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              secondaryBackground: Container(
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.error,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: Icon(
-                                  Icons.delete,
-                                  color: theme.colorScheme.onError,
-                                ),
-                              ),
-                              confirmDismiss: (direction) =>
-                                  _handleListSwipe(direction, list),
-                              child: _buildListCard(context, list),
                             ),
-                          ),
-                      ],
-                    ),
+                          )
+                        else
+                          for (final list in _completedLists)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Dismissible(
+                                key: ValueKey('completed-${list.id}'),
+                                background: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondary,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Icon(
+                                    Icons.undo,
+                                    color: theme.colorScheme.onSecondary,
+                                  ),
+                                ),
+                                secondaryBackground: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Icon(
+                                    Icons.delete,
+                                    color: theme.colorScheme.onError,
+                                  ),
+                                ),
+                                confirmDismiss: (direction) =>
+                                    _handleListSwipe(direction, list),
+                                child: _buildListCard(context, list),
+                              ),
+                            ),
+                ],
+              )
+            : _activeLists.isEmpty
+            ? Center(
+                child: Text(
+                  'No active lists',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  completedSection,
+                ),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                children: [
+                  for (final list in _activeLists)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Dismissible(
+                        key: ValueKey(list.id),
+                        background: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondary,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Icon(
+                            Icons.check,
+                            color: theme.colorScheme.onSecondary,
+                          ),
+                        ),
+                        secondaryBackground: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.error,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Icon(
+                            Icons.delete,
+                            color: theme.colorScheme.onError,
+                          ),
+                        ),
+                        confirmDismiss: (direction) =>
+                            _handleListSwipe(direction, list),
+                        child: _buildListCard(context, list),
+                      ),
+                    ),
                 ],
               ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SizedBox(
-        width: 180,
-        height: 164,
+        width: 320,
+        height: 220,
         child: Stack(
           alignment: Alignment.bottomCenter,
           clipBehavior: Clip.none,
@@ -663,7 +691,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
-                bottom: _isCreateMenuOpen ? 140 : 20,
+                right: 0,
+                bottom: _isCreateMenuOpen
+                    ? _createButtonBottom +
+                        (_createButtonHeight + _createMenuGap) * 2
+                    : _createButtonBottom,
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 180),
                   scale: _isCreateMenuOpen ? 1 : 0.7,
@@ -673,14 +705,27 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                     child: IgnorePointer(
                       ignoring: !_isCreateMenuOpen,
                       child: SizedBox(
-                        width: 84,
-                        height: 56,
+                        width: _createButtonWidth,
+                        height: _createButtonHeight,
                         child: FloatingActionButton(
                           heroTag: 'from_template',
                           onPressed: _openTemplates,
                           backgroundColor: theme.colorScheme.surface,
                           foregroundColor: theme.colorScheme.onSurface,
-                          child: const Icon(LucideIcons.star, size: 22),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.star, size: 18),
+                              const SizedBox(height: 2),
+                              Text(
+                                'templates',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -691,7 +736,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
-                bottom: _isCreateMenuOpen ? 72 : 20,
+                right: 0,
+                bottom: _isCreateMenuOpen
+                    ? _createButtonBottom + _createButtonHeight + _createMenuGap
+                    : _createButtonBottom,
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 180),
                   scale: _isCreateMenuOpen ? 1 : 0.7,
@@ -701,28 +749,33 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                     child: IgnorePointer(
                       ignoring: !_isCreateMenuOpen,
                       child: SizedBox(
-                        width: 84,
-                        height: 56,
+                        width: _createButtonWidth,
+                        height: _createButtonHeight,
                         child: FloatingActionButton(
                           heroTag: 'new_list_option',
                           onPressed: _openCreateList,
                           backgroundColor: theme.colorScheme.surface,
                           foregroundColor: theme.colorScheme.onSurface,
-                          child: SizedBox(
-                            width: 35,
-                            height: 35,
-                            child: OverflowBox(
-                              maxWidth: 88,
-                              maxHeight: 88,
-                              child: SizedBox(
-                                width: 45,
-                                height: 45,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
                                 child: Image.asset(
                                   'images/logo.png',
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'new',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -730,37 +783,78 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ),
                 ),
               ),
-            SizedBox(
-              width: 84,
-              height: 56,
-              child: FloatingActionButton(
-                heroTag: 'new_list',
-                onPressed: _handleCreateButton,
-                backgroundColor: theme.colorScheme.surface,
-                foregroundColor: theme.colorScheme.onSurface,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: 320,
+                height: 56,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(_isCreateMenuOpen ? Icons.close : Icons.add, size: 18),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 35,
-                      height: 35,
-                      child: OverflowBox(
-                        maxWidth: 88,
-                        maxHeight: 88,
-                        child: SizedBox(
-                          width: 45,
-                          height: 45,
-                          child: Image.asset(
-                            'images/logo.png',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                    Expanded(
+                      child: _buildHomeTab(
+                        context,
+                        icon: LucideIcons.house,
+                        selected: !_showHistory,
+                        onTap: () {
+                          setState(() {
+                            _isCreateMenuOpen = false;
+                            _showHistory = false;
+                          });
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildHomeTab(
+                        context,
+                        icon: LucideIcons.history,
+                        selected: _showHistory,
+                        onTap: () {
+                          setState(() {
+                            _isCreateMenuOpen = false;
+                            _showHistory = true;
+                          });
+                        },
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              bottom: _createButtonBottom,
+              child: SizedBox(
+                width: _createButtonWidth,
+                height: _createButtonHeight,
+                child: FloatingActionButton(
+                  heroTag: 'new_list',
+                  onPressed: _handleCreateButton,
+                  backgroundColor: theme.colorScheme.surface,
+                  foregroundColor: theme.colorScheme.onSurface,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(_isCreateMenuOpen ? Icons.close : Icons.add, size: 18),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 35,
+                        height: 35,
+                        child: OverflowBox(
+                          maxWidth: 88,
+                          maxHeight: 88,
+                          child: SizedBox(
+                            width: 45,
+                            height: 45,
+                            child: Image.asset(
+                              'images/logo.png',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
