@@ -51,7 +51,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
   final List<StoredCode> _codes = [];
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _homeScrollController = ScrollController();
+  final ScrollController _historyScrollController = ScrollController();
   bool _isCreateMenuOpen = false;
   _Tab _tab = _Tab.home;
   static const _labelColors = [
@@ -73,8 +74,16 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _homeScrollController.dispose();
+    _historyScrollController.dispose();
     super.dispose();
+  }
+
+  void _selectTab(_Tab tab) {
+    setState(() {
+      _isCreateMenuOpen = false;
+      _tab = tab;
+    });
   }
 
   Future<void> _loadData() async {
@@ -92,10 +101,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   List<ShoppingList> get _activeLists =>
-      _lists.where((list) => !list.isCompleted).toList();
+      (_lists.where((list) => !list.isCompleted).toList()
+        ..sort((a, b) => b.date.compareTo(a.date)));
 
   List<ShoppingList> get _completedLists =>
-      _lists.where((list) => list.isCompleted).toList();
+      (_lists.where((list) => list.isCompleted).toList()
+        ..sort((a, b) => b.date.compareTo(a.date)));
 
   Future<void> _openCreateList() async {
     setState(() => _isCreateMenuOpen = false);
@@ -499,6 +510,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             _labelStore.add(label);
           }
         },
+        onLabelDeleted: (label) {
+          setState(() {
+            _labelStore.remove(label);
+            for (final list in _lists) {
+              list.labels.remove(label);
+            }
+          });
+        },
       ),
     );
     if (result != null && mounted) {
@@ -582,7 +601,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         ],
       ),
     );
-    nameController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nameController.dispose();
+    });
 
     if (name == null || name.isEmpty || !mounted) return;
 
@@ -605,26 +626,61 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _viewCode(StoredCode code) async {
+    final index = _codes.indexWhere((item) => item.id == code.id);
+    if (index == -1) return;
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => CodeViewerPage(code: code)),
+      MaterialPageRoute(
+        builder: (_) => CodeViewerPage(codes: _codes, initialIndex: index),
+      ),
     );
+  }
+
+  Future<void> _editCode(StoredCode code) async {
+    final controller = TextEditingController(text: code.name);
+    final renamed = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Code name'),
+          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.pop(ctx),
+            icon: const Icon(Icons.close),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            icon: const Icon(Icons.check),
+          ),
+        ],
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+    if (renamed == null || renamed.isEmpty || !mounted) return;
+    setState(() => code.name = renamed);
+    unawaited(listRepository.saveCode(code));
   }
 
   Future<void> _confirmDeleteCode(StoredCode code) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete code?'),
-        content: Text('Remove "${code.name}"?'),
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${code.name}?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+          IconButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            icon: const Icon(Icons.close),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+          IconButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.check),
           ),
         ],
       ),
@@ -707,6 +763,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             ? QrWalletBody(
                 codes: _codes,
                 onView: _viewCode,
+                onEdit: _editCode,
                 onDelete: _confirmDeleteCode,
               )
             : _lists.isEmpty
@@ -738,10 +795,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               )
             : _tab == _Tab.history
             ? Scrollbar(
-                controller: _scrollController,
+                controller: _historyScrollController,
                 thumbVisibility: true,
                 child: ListView(
-                  controller: _scrollController,
+                  controller: _historyScrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                   children: [
                     if (_completedLists.isEmpty)
@@ -808,10 +865,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ),
               )
             : Scrollbar(
-                controller: _scrollController,
+                controller: _homeScrollController,
                 thumbVisibility: true,
                 child: ListView(
-                  controller: _scrollController,
+                  controller: _homeScrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                   children: [
                     for (final list in _activeLists)
@@ -968,10 +1025,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         icon: LucideIcons.house,
                         label: 'home',
                         selected: _tab == _Tab.home,
-                        onTap: () => setState(() {
-                          _isCreateMenuOpen = false;
-                          _tab = _Tab.home;
-                        }),
+                        onTap: () => _selectTab(_Tab.home),
                       ),
                     ),
                     Expanded(
@@ -980,10 +1034,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         icon: LucideIcons.history,
                         label: 'history',
                         selected: _tab == _Tab.history,
-                        onTap: () => setState(() {
-                          _isCreateMenuOpen = false;
-                          _tab = _Tab.history;
-                        }),
+                        onTap: () => _selectTab(_Tab.history),
                       ),
                     ),
                     Expanded(
@@ -992,10 +1043,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         icon: LucideIcons.wallet,
                         label: 'wallet',
                         selected: _tab == _Tab.wallet,
-                        onTap: () => setState(() {
-                          _isCreateMenuOpen = false;
-                          _tab = _Tab.wallet;
-                        }),
+                        onTap: () => _selectTab(_Tab.wallet),
                       ),
                     ),
                   ],
@@ -1016,7 +1064,23 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   backgroundColor: fillColor,
                   foregroundColor: theme.colorScheme.onSurface,
                   child: _tab == _Tab.wallet
-                      ? const Icon(Icons.add, size: 22)
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add, size: 18),
+                            const SizedBox(width: 4),
+                            SizedBox(
+                              width: 35,
+                              height: 35,
+                              child: OverflowBox(
+                                maxWidth: 88,
+                                maxHeight: 88,
+                                child: Icon(LucideIcons.qr_code, size: 30),
+                              ),
+                            ),
+                          ],
+                        )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1060,6 +1124,7 @@ class _EditLabelsDialog extends StatefulWidget {
   final Color Function(String label) colorForLabel;
   final ValueChanged<List<String>> onChanged;
   final ValueChanged<String> onLabelCreated;
+  final ValueChanged<String> onLabelDeleted;
 
   const _EditLabelsDialog({
     required this.availableLabels,
@@ -1067,6 +1132,7 @@ class _EditLabelsDialog extends StatefulWidget {
     required this.colorForLabel,
     required this.onChanged,
     required this.onLabelCreated,
+    required this.onLabelDeleted,
   });
 
   @override
@@ -1077,6 +1143,7 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
   late final List<String> _selectedLabels;
   late final List<String> _allLabels;
   final TextEditingController _newLabelController = TextEditingController();
+  BuildContext? _contentContext;
 
   @override
   void initState() {
@@ -1120,79 +1187,117 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
     _newLabelController.clear();
   }
 
+  void _deleteLabel(String label) {
+    setState(() {
+      _allLabels.remove(label);
+      _selectedLabels.remove(label);
+    });
+    widget.onChanged(List<String>.from(_selectedLabels));
+    widget.onLabelDeleted(label);
+  }
+
+  bool _isOutsidePopup(Offset offset) {
+    final renderObject = _contentContext?.findRenderObject();
+    if (renderObject is! RenderBox) return false;
+    final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return !rect.contains(offset);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Labels'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_allLabels.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _allLabels.map((label) {
-                    final selected = _selectedLabels.contains(label);
-                    final color = widget.colorForLabel(label);
-                    return GestureDetector(
-                      onTap: () => _toggleLabel(label, !selected),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? color
-                              : color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: color, width: 1.5),
-                        ),
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            color: selected ? Colors.white : color,
-                            fontSize: 13,
-                            fontWeight: selected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+      content: Builder(
+        builder: (contentContext) {
+          _contentContext = contentContext;
+          return SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_allLabels.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _allLabels.map((label) {
+                        final selected = _selectedLabels.contains(label);
+                        final color = widget.colorForLabel(label);
+                        final chip = Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
                           ),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? color
+                                : color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: color, width: 1.5),
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: selected ? Colors.white : color,
+                              fontSize: 13,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        );
+                        return Draggable<String>(
+                          data: label,
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: chip,
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.25,
+                            child: chip,
+                          ),
+                          onDragEnd: (details) {
+                            if (_isOutsidePopup(details.offset)) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  _deleteLabel(label);
+                                }
+                              });
+                            }
+                          },
+                          child: GestureDetector(
+                            onTap: () => _toggleLabel(label, !selected),
+                            child: chip,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _newLabelController,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            hintText: 'New label',
+                          ),
+                          onSubmitted: (_) => _addNewLabel(),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _newLabelController,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(hintText: 'New label'),
-                      onSubmitted: (_) => _addNewLabel(),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.check),
-                    onPressed: _addNewLabel,
+                      IconButton(
+                        icon: const Icon(Icons.check),
+                        onPressed: _addNewLabel,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, _selectedLabels),
-          child: const Text('Done'),
-        ),
-      ],
     );
   }
 }

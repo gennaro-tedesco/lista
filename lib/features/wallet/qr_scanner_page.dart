@@ -12,13 +12,26 @@ class _QrScannerPageState extends State<QrScannerPage> {
   final MobileScannerController _controller = MobileScannerController(
     returnImage: true,
   );
-  bool _detected = false;
+  DateTime? _detectedAt;
+  bool _done = false;
+
+  static const _settleMs = 800;
 
   void _onDetect(BarcodeCapture capture) {
-    if (_detected || capture.image == null) return;
-    _detected = true;
-    _controller.stop();
-    Navigator.pop(context, capture.image!);
+    if (_done || capture.image == null) return;
+
+    final now = DateTime.now();
+
+    if (_detectedAt == null) {
+      _detectedAt = now;
+      return;
+    }
+
+    if (now.difference(_detectedAt!).inMilliseconds >= _settleMs) {
+      _done = true;
+      _controller.stop();
+      Navigator.pop(context, capture.image!);
+    }
   }
 
   @override

@@ -6,12 +6,14 @@ import '../../models/stored_code.dart';
 class QrWalletBody extends StatelessWidget {
   final List<StoredCode> codes;
   final void Function(StoredCode) onView;
+  final void Function(StoredCode) onEdit;
   final void Function(StoredCode) onDelete;
 
   const QrWalletBody({
     super.key,
     required this.codes,
     required this.onView,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -51,9 +53,11 @@ class QrWalletBody extends StatelessWidget {
       ),
       itemCount: codes.length,
       itemBuilder: (context, index) => _CodeCard(
+        key: ValueKey(codes[index].id),
         code: codes[index],
         onTap: () => onView(codes[index]),
-        onLongPress: () => onDelete(codes[index]),
+        onEdit: () => onEdit(codes[index]),
+        onDelete: () => onDelete(codes[index]),
       ),
     );
   }
@@ -62,12 +66,15 @@ class QrWalletBody extends StatelessWidget {
 class _CodeCard extends StatelessWidget {
   final StoredCode code;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _CodeCard({
+    super.key,
     required this.code,
     required this.onTap,
-    required this.onLongPress,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -77,32 +84,59 @@ class _CodeCard extends StatelessWidget {
     return Card(
       child: InkWell(
         onTap: onTap,
-        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(16),
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+            Column(
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child: file.existsSync()
+                        ? Image.file(
+                            file,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                          )
+                        : const Center(
+                            child: Icon(Icons.broken_image, size: 48),
+                          ),
+                  ),
                 ),
-                child: file.existsSync()
-                    ? Image.file(
-                        file,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                      )
-                    : const Center(child: Icon(Icons.broken_image, size: 48)),
-              ),
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    code.name,
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Text(
-                code.name,
-                style: theme.textTheme.bodySmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
+            Positioned(
+              top: 4,
+              right: 4,
+              child: PopupMenuButton<_CodeAction>(
+                icon: const Icon(LucideIcons.ellipsis_vertical, size: 18),
+                onSelected: (value) {
+                  switch (value) {
+                    case _CodeAction.edit:
+                      onEdit();
+                    case _CodeAction.delete:
+                      onDelete();
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: _CodeAction.edit, child: Text('Edit')),
+                  PopupMenuItem(
+                    value: _CodeAction.delete,
+                    child: Text('Delete'),
+                  ),
+                ],
               ),
             ),
           ],
@@ -111,3 +145,5 @@ class _CodeCard extends StatelessWidget {
     );
   }
 }
+
+enum _CodeAction { edit, delete }

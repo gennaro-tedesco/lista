@@ -671,21 +671,25 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                                     setState(() => widget.list.date = date),
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color:
-                                    checked == items.length && items.isNotEmpty
-                                    ? theme.colorScheme.primary
-                                    : null,
+                            SizedBox(
+                              height: 20,
+                              child: Align(
+                                alignment: const Alignment(0, 8),
+                                child: Text(
+                                  '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color:
+                                        checked == items.length &&
+                                            items.isNotEmpty
+                                        ? theme.colorScheme.primary
+                                        : null,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 14),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 6),
                       if (items.isNotEmpty) ...[
                         for (final entry in _groupedItems.entries)
                           CategorySection(
