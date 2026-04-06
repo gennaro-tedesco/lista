@@ -112,6 +112,9 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     String currency,
   ) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
     final rawMaxValue = stats.buckets.isEmpty
         ? 1.0
         : stats.buckets.map((b) => b.total).reduce((a, b) => a > b ? a : b);
@@ -123,7 +126,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: fillColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: SizedBox(
@@ -206,6 +209,9 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     String currency,
   ) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
 
     const colWidths = <int, TableColumnWidth>{
       0: FlexColumnWidth(1.4),
@@ -274,7 +280,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: fillColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Table(
@@ -291,6 +297,9 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
     final currencies = _currencies;
     final selectedCurrency =
         _selectedCurrency ?? (currencies.isEmpty ? null : currencies.first);
@@ -330,93 +339,105 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-          Row(
-            children: [
-              SizedBox(
-                width: labelWidth,
-                child: Text('From', style: labelStyle),
-              ),
-              Expanded(
-                child: DateSelectorField(
-                  selectedDate: _startDate,
-                  onDateSelected: (value) => setState(() => _startDate = value),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: labelWidth,
+                      child: Text('From', style: labelStyle),
+                    ),
+                    Expanded(
+                      child: DateSelectorField(
+                        selectedDate: _startDate,
+                        onDateSelected: (value) =>
+                            setState(() => _startDate = value),
+                      ),
+                    ),
+                    if (currencies.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      DropdownMenu<String>(
+                        initialSelection: selectedCurrency,
+                        onSelected: (value) {
+                          if (value != null) {
+                            setState(() => _selectedCurrency = value);
+                          }
+                        },
+                        width: 96,
+                        inputDecorationTheme: InputDecorationTheme(
+                          filled: true,
+                          fillColor: fillColor,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        dropdownMenuEntries: currencies
+                            .map(
+                              (c) =>
+                                  DropdownMenuEntry<String>(value: c, label: c),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-              if (currencies.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                DropdownMenu<String>(
-                  initialSelection: selectedCurrency,
-                  onSelected: (value) {
-                    if (value != null)
-                      setState(() => _selectedCurrency = value);
-                  },
-                  width: 96,
-                  inputDecorationTheme: InputDecorationTheme(
-                    filled: true,
-                    fillColor:
-                        theme.inputDecorationTheme.fillColor ??
-                        theme.colorScheme.surfaceContainerHighest,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: labelWidth,
+                      child: Text('Group', style: labelStyle),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: BorderSide.none,
+                    Expanded(
+                      child: SegmentedButton<GroupBy>(
+                        segments: const [
+                          ButtonSegment(
+                            value: GroupBy.none,
+                            label: Text('None'),
+                          ),
+                          ButtonSegment(
+                            value: GroupBy.week,
+                            label: Text('Week'),
+                          ),
+                          ButtonSegment(
+                            value: GroupBy.month,
+                            label: Text('Month'),
+                          ),
+                        ],
+                        selected: {_groupBy},
+                        onSelectionChanged: (selection) =>
+                            setState(() => _groupBy = selection.first),
+                        showSelectedIcon: false,
+                      ),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: BorderSide.none,
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (stats == null || stats.listCount == 0) ...[
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: fillColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      'No completed lists with a saved total match the current filter.',
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ),
-                  dropdownMenuEntries: currencies
-                      .map((c) => DropdownMenuEntry<String>(value: c, label: c))
-                      .toList(),
-                ),
+                ] else ...[
+                  _buildChart(context, stats, currentCurrency),
+                  const SizedBox(height: 16),
+                  _buildTable(context, stats, currentCurrency),
+                ],
               ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              SizedBox(
-                width: labelWidth,
-                child: Text('Group', style: labelStyle),
-              ),
-              Expanded(
-                child: SegmentedButton<GroupBy>(
-                  segments: const [
-                    ButtonSegment(value: GroupBy.none, label: Text('None')),
-                    ButtonSegment(value: GroupBy.week, label: Text('Week')),
-                    ButtonSegment(value: GroupBy.month, label: Text('Month')),
-                  ],
-                  selected: {_groupBy},
-                  onSelectionChanged: (selection) =>
-                      setState(() => _groupBy = selection.first),
-                  showSelectedIcon: false,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (stats == null || stats.listCount == 0) ...[
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                'No completed lists with a saved total match the current filter.',
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
-          ] else ...[
-            _buildChart(context, stats, currentCurrency),
-            const SizedBox(height: 16),
-            _buildTable(context, stats, currentCurrency),
-          ],
-        ],
             ),
           ),
           Padding(
@@ -426,7 +447,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
               child: IconButton.filled(
                 onPressed: () => Navigator.pop(context),
                 style: IconButton.styleFrom(
-                  backgroundColor: theme.colorScheme.surface,
+                  backgroundColor: fillColor,
                   foregroundColor: theme.colorScheme.onSurface,
                 ),
                 tooltip: 'Back',

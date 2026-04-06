@@ -1,18 +1,28 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
+import '../../models/stored_code.dart';
 import '../../repositories/list_repository.dart';
 import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
 import '../stats/spending_stats_page.dart';
 import '../view_list/shopping_list_view_page.dart';
+import '../wallet/code_viewer_page.dart';
+import '../wallet/qr_scanner_page.dart';
+import '../wallet/qr_wallet_body.dart';
 
 const _uuid = Uuid();
+
+enum _Tab { home, history, wallet }
 
 class ShoppingListsHomePage extends StatefulWidget {
   const ShoppingListsHomePage({super.key});
@@ -26,11 +36,23 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   static const _createButtonHeight = 56.0;
   static const _createButtonBottom = 72.0;
   static const _createMenuGap = 12.0;
+  static const _createMenuLevels = 2;
+  static const _tabStripHeight = 56.0;
+  static const _fabOverlayHeight =
+      _createButtonBottom +
+      _createButtonHeight +
+      (_createButtonHeight + _createMenuGap) * _createMenuLevels;
+  static const _newListMenuBottom =
+      _createButtonBottom + _createButtonHeight + _createMenuGap;
+  static const _templateMenuBottom =
+      _createButtonBottom +
+      (_createButtonHeight + _createMenuGap) * _createMenuLevels;
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
+  final List<StoredCode> _codes = [];
   bool _isCreateMenuOpen = false;
-  bool _showHistory = false;
+  _Tab _tab = _Tab.home;
   static const _labelColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -52,11 +74,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final lists = await listRepository.getLists();
     final templates = await listRepository.getTemplates();
     final labels = await listRepository.getLabels();
+    final codes = await listRepository.getCodes();
     if (!mounted) return;
     setState(() {
       _lists.addAll(lists);
       _templates.addAll(templates);
       _labelStore.addAll(labels);
+      _codes.addAll(codes);
     });
   }
 
@@ -79,7 +103,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     if (result != null) {
       setState(() {
-        _showHistory = false;
+        _tab = _Tab.home;
         _lists.add(result);
       });
       unawaited(listRepository.saveList(result));
@@ -111,7 +135,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     if (result != null) {
       setState(() {
-        _showHistory = false;
+        _tab = _Tab.home;
         _lists.add(result);
       });
       unawaited(listRepository.saveList(result));
@@ -231,10 +255,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   Widget _buildHomeTab(
     BuildContext context, {
     required IconData icon,
+    required String label,
     required bool selected,
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -242,9 +270,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         borderRadius: BorderRadius.zero,
         child: Container(
           height: 56,
-          color: selected
-              ? theme.scaffoldBackgroundColor
-              : theme.colorScheme.surface,
+          color: selected ? theme.scaffoldBackgroundColor : fillColor,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -258,7 +284,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  icon == LucideIcons.house ? 'home' : 'history',
+                  label,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: selected
                         ? theme.colorScheme.onSurface
@@ -489,6 +515,120 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     return false;
   }
 
+  Future<void> _addCode() async {
+    final choice = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.scan_line),
+              title: const Text('Scan with camera'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Import from gallery'),
+              onTap: () => Navigator.pop(context, false),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    Uint8List? imageBytes;
+    if (choice) {
+      imageBytes = await Navigator.push<Uint8List>(
+        context,
+        MaterialPageRoute(builder: (_) => const QrScannerPage()),
+      );
+    } else {
+      final file = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (file != null) imageBytes = await file.readAsBytes();
+    }
+
+    if (imageBytes == null || !mounted) return;
+
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Name this code'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'e.g. Loyalty card'),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, nameController.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+
+    if (name == null || name.isEmpty || !mounted) return;
+
+    final dir = await getApplicationDocumentsDirectory();
+    final id = const Uuid().v4();
+    final codesDir = Directory('${dir.path}/qr_codes');
+    if (!await codesDir.exists()) await codesDir.create(recursive: true);
+    final imagePath = '${codesDir.path}/$id.png';
+    await File(imagePath).writeAsBytes(imageBytes);
+
+    final code = StoredCode(
+      id: id,
+      name: name,
+      imagePath: imagePath,
+      createdAt: DateTime.now(),
+    );
+    if (!mounted) return;
+    setState(() => _codes.add(code));
+    unawaited(listRepository.saveCode(code));
+  }
+
+  Future<void> _viewCode(StoredCode code) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CodeViewerPage(code: code)),
+    );
+  }
+
+  Future<void> _confirmDeleteCode(StoredCode code) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete code?'),
+        content: Text('Remove "${code.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _codes.remove(code));
+    unawaited(listRepository.deleteCode(code.id));
+    final file = File(code.imagePath);
+    if (await file.exists()) await file.delete();
+  }
+
   String _formatDate(DateTime date) {
     const months = [
       'Jan',
@@ -510,6 +650,16 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+    final overlayWidth = MediaQuery.sizeOf(context).width - 32;
+
+    final appBarTitle = switch (_tab) {
+      _Tab.home => 'Lista',
+      _Tab.history => 'History',
+      _Tab.wallet => 'Wallet',
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -519,13 +669,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             Image.asset('images/logo.png', height: 38),
             const SizedBox(width: 8),
             GradientText(
-              _showHistory ? 'History' : 'Lista',
+              appBarTitle,
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
             ),
           ],
         ),
         actions: [
-          if (_showHistory)
+          if (_tab == _Tab.history)
             IconButton(
               icon: const Icon(Icons.bar_chart_rounded),
               tooltip: 'Statistics',
@@ -546,7 +696,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           }
         },
         behavior: HitTestBehavior.translucent,
-        child: _lists.isEmpty
+        child: _tab == _Tab.wallet
+            ? QrWalletBody(
+                codes: _codes,
+                onView: _viewCode,
+                onDelete: _confirmDeleteCode,
+              )
+            : _lists.isEmpty
             ? Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -573,61 +729,57 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ],
                 ),
               )
-            : _showHistory
+            : _tab == _Tab.history
             ? ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                 children: [
-                        if (_completedLists.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 80),
-                            child: Center(
-                              child: Text(
-                                'No completed lists',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
+                  if (_completedLists.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 80),
+                      child: Center(
+                        child: Text(
+                          'No completed lists',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final list in _completedLists)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Dismissible(
+                          key: ValueKey('completed-${list.id}'),
+                          background: Container(
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary,
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          )
-                        else
-                          for (final list in _completedLists)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Dismissible(
-                                key: ValueKey('completed-${list.id}'),
-                                background: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondary,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: Icon(
-                                    Icons.undo,
-                                    color: theme.colorScheme.onSecondary,
-                                  ),
-                                ),
-                                secondaryBackground: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.error,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: Icon(
-                                    Icons.delete,
-                                    color: theme.colorScheme.onError,
-                                  ),
-                                ),
-                                confirmDismiss: (direction) =>
-                                    _handleListSwipe(direction, list),
-                                child: _buildListCard(context, list),
-                              ),
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Icon(
+                              Icons.undo,
+                              color: theme.colorScheme.onSecondary,
                             ),
+                          ),
+                          secondaryBackground: Container(
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.error,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Icon(
+                              Icons.delete,
+                              color: theme.colorScheme.onError,
+                            ),
+                          ),
+                          confirmDismiss: (direction) =>
+                              _handleListSwipe(direction, list),
+                          child: _buildListCard(context, list),
+                        ),
+                      ),
                 ],
               )
             : _activeLists.isEmpty
@@ -681,20 +833,19 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SizedBox(
-        width: 320,
-        height: 220,
+        width: overlayWidth,
+        height: _fabOverlayHeight,
         child: Stack(
           alignment: Alignment.bottomCenter,
           clipBehavior: Clip.none,
           children: [
-            if (_templates.isNotEmpty)
+            if (_tab != _Tab.wallet && _templates.isNotEmpty)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
                 right: 0,
                 bottom: _isCreateMenuOpen
-                    ? _createButtonBottom +
-                        (_createButtonHeight + _createMenuGap) * 2
+                    ? _templateMenuBottom
                     : _createButtonBottom,
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 180),
@@ -710,7 +861,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         child: FloatingActionButton(
                           heroTag: 'from_template',
                           onPressed: _openTemplates,
-                          backgroundColor: theme.colorScheme.surface,
+                          backgroundColor: fillColor,
                           foregroundColor: theme.colorScheme.onSurface,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -732,13 +883,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ),
                 ),
               ),
-            if (_templates.isNotEmpty)
+            if (_tab != _Tab.wallet && _templates.isNotEmpty)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
                 right: 0,
                 bottom: _isCreateMenuOpen
-                    ? _createButtonBottom + _createButtonHeight + _createMenuGap
+                    ? _newListMenuBottom
                     : _createButtonBottom,
                 child: AnimatedScale(
                   duration: const Duration(milliseconds: 180),
@@ -754,7 +905,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         child: FloatingActionButton(
                           heroTag: 'new_list_option',
                           onPressed: _openCreateList,
-                          backgroundColor: theme.colorScheme.surface,
+                          backgroundColor: fillColor,
                           foregroundColor: theme.colorScheme.onSurface,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -786,34 +937,44 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             Align(
               alignment: Alignment.bottomCenter,
               child: SizedBox(
-                width: 320,
-                height: 56,
+                width: overlayWidth,
+                height: _tabStripHeight,
                 child: Row(
                   children: [
                     Expanded(
                       child: _buildHomeTab(
                         context,
                         icon: LucideIcons.house,
-                        selected: !_showHistory,
-                        onTap: () {
-                          setState(() {
-                            _isCreateMenuOpen = false;
-                            _showHistory = false;
-                          });
-                        },
+                        label: 'home',
+                        selected: _tab == _Tab.home,
+                        onTap: () => setState(() {
+                          _isCreateMenuOpen = false;
+                          _tab = _Tab.home;
+                        }),
                       ),
                     ),
                     Expanded(
                       child: _buildHomeTab(
                         context,
                         icon: LucideIcons.history,
-                        selected: _showHistory,
-                        onTap: () {
-                          setState(() {
-                            _isCreateMenuOpen = false;
-                            _showHistory = true;
-                          });
-                        },
+                        label: 'history',
+                        selected: _tab == _Tab.history,
+                        onTap: () => setState(() {
+                          _isCreateMenuOpen = false;
+                          _tab = _Tab.history;
+                        }),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildHomeTab(
+                        context,
+                        icon: LucideIcons.wallet,
+                        label: 'wallet',
+                        selected: _tab == _Tab.wallet,
+                        onTap: () => setState(() {
+                          _isCreateMenuOpen = false;
+                          _tab = _Tab.wallet;
+                        }),
                       ),
                     ),
                   ],
@@ -828,33 +989,40 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 height: _createButtonHeight,
                 child: FloatingActionButton(
                   heroTag: 'new_list',
-                  onPressed: _handleCreateButton,
-                  backgroundColor: theme.colorScheme.surface,
+                  onPressed: _tab == _Tab.wallet
+                      ? _addCode
+                      : _handleCreateButton,
+                  backgroundColor: fillColor,
                   foregroundColor: theme.colorScheme.onSurface,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(_isCreateMenuOpen ? Icons.close : Icons.add, size: 18),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        width: 35,
-                        height: 35,
-                        child: OverflowBox(
-                          maxWidth: 88,
-                          maxHeight: 88,
-                          child: SizedBox(
-                            width: 45,
-                            height: 45,
-                            child: Image.asset(
-                              'images/logo.png',
-                              fit: BoxFit.cover,
+                  child: _tab == _Tab.wallet
+                      ? const Icon(Icons.add, size: 22)
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isCreateMenuOpen ? Icons.close : Icons.add,
+                              size: 18,
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            SizedBox(
+                              width: 35,
+                              height: 35,
+                              child: OverflowBox(
+                                maxWidth: 88,
+                                maxHeight: 88,
+                                child: SizedBox(
+                                  width: 45,
+                                  height: 45,
+                                  child: Image.asset(
+                                    'images/logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),

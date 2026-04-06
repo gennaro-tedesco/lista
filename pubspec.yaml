@@ -36,9 +36,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   fl_chart: ^1.1.1
   flutter_lucide: ^1.8.2
+  image_picker: ^1.1.0
+  mobile_scanner: ^6.0.0
   path_provider: ^2.0.0
   shared_preferences: ^2.0.0
   uuid: ^4.0.0
+  wakelock_plus: ^1.2.0
 
 dev_dependencies:
   flutter_test:

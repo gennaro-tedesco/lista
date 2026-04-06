@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/shopping_list.dart';
 import '../models/shopping_list_template.dart';
+import '../models/stored_code.dart';
 import 'list_repository.dart';
 
 class LocalListRepository implements ListRepository {
@@ -10,6 +11,7 @@ class LocalListRepository implements ListRepository {
   List<ShoppingList> _lists = [];
   List<ShoppingListTemplate> _templates = [];
   List<String> _labels = [];
+  List<StoredCode> _codes = [];
 
   Future<void> init() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -29,6 +31,11 @@ class LocalListRepository implements ListRepository {
             .toList() ??
         [];
     _labels = (json['labels'] as List<dynamic>?)?.cast<String>() ?? [];
+    _codes =
+        (json['codes'] as List<dynamic>?)
+            ?.map((e) => StoredCode.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
   }
 
   Future<void> _persist() => _file.writeAsString(
@@ -36,6 +43,7 @@ class LocalListRepository implements ListRepository {
       'lists': _lists.map((e) => e.toJson()).toList(),
       'templates': _templates.map((e) => e.toJson()).toList(),
       'labels': _labels,
+      'codes': _codes.map((e) => e.toJson()).toList(),
     }),
   );
 
@@ -47,6 +55,9 @@ class LocalListRepository implements ListRepository {
 
   @override
   Future<List<String>> getLabels() async => _labels;
+
+  @override
+  Future<List<StoredCode>> getCodes() async => _codes;
 
   @override
   Future<void> saveList(ShoppingList list) async {
@@ -85,6 +96,23 @@ class LocalListRepository implements ListRepository {
   @override
   Future<void> saveLabels(List<String> labels) async {
     _labels = List.from(labels);
+    await _persist();
+  }
+
+  @override
+  Future<void> saveCode(StoredCode code) async {
+    final idx = _codes.indexWhere((e) => e.id == code.id);
+    if (idx == -1) {
+      _codes.add(code);
+    } else {
+      _codes[idx] = code;
+    }
+    await _persist();
+  }
+
+  @override
+  Future<void> deleteCode(String id) async {
+    _codes.removeWhere((e) => e.id == id);
     await _persist();
   }
 }

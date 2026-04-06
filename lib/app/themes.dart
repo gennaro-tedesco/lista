@@ -103,10 +103,10 @@ class AppThemes {
         AppThemeOption.solarizedDark => _build(
           fontScale: fontScale,
           brightness: Brightness.dark,
-          background: const Color(0xFF001e27),
-          surface: const Color(0xFF002831),
+          background: const Color(0xFF002B36),
+          surface: const Color(0xFF073642),
           surfaceContainer: const Color(0xFF0D3A47),
-          primary: const Color(0xFF2176c7),
+          primary: const Color(0xFF268BD2),
           onPrimary: const Color(0xFF002B36),
           secondary: const Color(0xFF2AA198),
           text: const Color(0xFF93A1A1),
@@ -253,7 +253,7 @@ class AppThemes {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       cardTheme: CardThemeData(
-        color: surface,
+        color: surfaceContainer,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

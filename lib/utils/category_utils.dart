@@ -18,6 +18,7 @@ class CategorySection extends StatelessWidget {
   final List<ShoppingListItem> items;
   final bool isCollapsed;
   final VoidCallback onToggleCollapse;
+  final VoidCallback onAdd;
   final Widget Function(BuildContext context, ShoppingListItem item)
   itemBuilder;
 
@@ -27,6 +28,7 @@ class CategorySection extends StatelessWidget {
     required this.items,
     required this.isCollapsed,
     required this.onToggleCollapse,
+    required this.onAdd,
     required this.itemBuilder,
   });
 
@@ -90,16 +92,66 @@ class CategorySection extends StatelessWidget {
                                 color: theme.colorScheme.primary,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onAdd,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: Icon(
+                                  LucideIcons.plus,
+                                  size: 16,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
                           ],
                         )
                       else
-                        Text(
-                          '$checked/$total',
-                          style: theme.textTheme.bodySmall?.copyWith(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$checked/$total',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onAdd,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                child: Icon(
+                                  LucideIcons.plus,
+                                  size: 16,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    if (total == 0) ...[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onAdd,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            LucideIcons.plus,
+                            size: 16,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                      ),
+                    ],
                     const Spacer(),
+                    const SizedBox(width: 8),
                     Icon(
                       isCollapsed
                           ? LucideIcons.chevron_right

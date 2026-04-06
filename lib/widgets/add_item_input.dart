@@ -3,10 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 
-InputDecoration _pillDecoration(
-  BuildContext context, {
-  Widget? icon,
-}) {
+InputDecoration _pillDecoration(BuildContext context, {Widget? icon}) {
   final theme = Theme.of(context);
   final fillColor =
       theme.inputDecorationTheme.fillColor ??
@@ -87,6 +84,7 @@ class AddItemInput extends StatelessWidget {
           );
 
           return Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -151,6 +149,7 @@ class AddItemInput extends StatelessWidget {
 class AddItemFields extends StatelessWidget {
   final TextEditingController itemController;
   final TextEditingController quantityController;
+  final FocusNode? itemFocusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onSubmit;
   final Widget? suggestions;
@@ -159,6 +158,7 @@ class AddItemFields extends StatelessWidget {
     super.key,
     required this.itemController,
     required this.quantityController,
+    this.itemFocusNode,
     required this.onChanged,
     required this.onSubmit,
     this.suggestions,
@@ -172,9 +172,13 @@ class AddItemFields extends StatelessWidget {
         builder: (context, constraints) {
           const quantityWidth = 100.0;
           const gap = 8.0;
-          final itemWidth = math.max(0.0, constraints.maxWidth - quantityWidth - gap);
+          final itemWidth = math.max(
+            0.0,
+            constraints.maxWidth - quantityWidth - gap,
+          );
 
           return Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -182,6 +186,7 @@ class AddItemFields extends StatelessWidget {
                   Expanded(
                     child: TextField(
                       controller: itemController,
+                      focusNode: itemFocusNode,
                       onChanged: onChanged,
                       onSubmitted: (_) => onSubmit(),
                       textCapitalization: TextCapitalization.sentences,

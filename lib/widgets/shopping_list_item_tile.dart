@@ -85,9 +85,7 @@ class ShoppingListItemTile extends StatelessWidget {
               child: Text(
                 item.quantity!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: item.isChecked
-                      ? dimColor
-                      : theme.colorScheme.primary,
+                  color: item.isChecked ? dimColor : theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),

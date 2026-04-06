@@ -43,11 +43,15 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalPriceController = TextEditingController();
+  final FocusNode _itemFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
+  late String? _draftTotalPrice;
+  late String _draftCurrencySymbol;
   final Set<String> _collapsedCategories = {};
+  String? _pendingCategory;
   bool _priceError = false;
   final Map<String, bool> _dropAfterByItemId = {};
   String? _previewAnchorItemId;
@@ -56,7 +60,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   @override
   void initState() {
     super.initState();
-    _totalPriceController.text = widget.list.totalPrice ?? '';
+    _draftTotalPrice = widget.list.totalPrice;
+    _draftCurrencySymbol = widget.list.currencySymbol;
+    _totalPriceController.text = _draftTotalPrice ?? '';
     _templateSignatures = widget.existingTemplates
         .map((template) => _signatureFromTemplateItems(template.items))
         .toSet();
@@ -67,6 +73,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
+    _itemFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -83,9 +90,6 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool get _canSaveTemplate =>
       widget.list.items.isNotEmpty &&
       !_templateSignatures.contains(_signatureFromItems(widget.list.items));
-
-  bool get _hasCategories =>
-      widget.list.items.any((item) => item.category != null);
 
   Map<String, List<ShoppingListItem>> get _groupedItems {
     final map = <String, List<ShoppingListItem>>{};
@@ -143,10 +147,13 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
-          category: suggestion.category,
+          category: _pendingCategory == 'Other'
+              ? null
+              : _pendingCategory ?? suggestion.category,
         ),
       );
       _suggestions = [];
+      _pendingCategory = null;
     });
     _itemController.clear();
     _quantityController.clear();
@@ -163,39 +170,101 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
-          category: SuggestionService.categoryFor(text),
+          category: _pendingCategory == 'Other'
+              ? null
+              : _pendingCategory ?? SuggestionService.categoryFor(text),
         ),
       );
       _suggestions = [];
+      _pendingCategory = null;
     });
     _itemController.clear();
     _quantityController.clear();
   }
 
+  Future<void> _showAddItemPopup([String? category]) async {
+    _pendingCategory = category;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black38,
+      pageBuilder: (dialogContext, _, _) {
+        return MediaQuery.removeViewInsets(
+          context: dialogContext,
+          removeLeft: true,
+          removeTop: true,
+          removeRight: true,
+          removeBottom: true,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(dialogContext),
+            behavior: HitTestBehavior.opaque,
+            child: Material(
+              color: Colors.transparent,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: AddItemFields(
+                      itemController: _itemController,
+                      quantityController: _quantityController,
+                      itemFocusNode: _itemFocusNode,
+                      onChanged: _onItemTextChanged,
+                      onSubmit: () {
+                        if (_itemController.text.trim().isEmpty) return;
+                        _addFromText();
+                        Navigator.pop(dialogContext);
+                      },
+                      suggestions: _suggestions.isNotEmpty
+                          ? AutocompleteDropdown(
+                              suggestions: _suggestions,
+                              onSelect: (suggestion) {
+                                _addFromSuggestion(suggestion);
+                                Navigator.pop(dialogContext);
+                              },
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    _pendingCategory = null;
+    _suggestions = [];
+  }
+
   void _updateTotalPrice(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
-      widget.list.totalPrice = null;
-      setState(() => _priceError = false);
+      setState(() {
+        _draftTotalPrice = null;
+        _priceError = false;
+      });
       return;
     }
     final parsed = double.tryParse(trimmed.replaceAll(',', '.'));
-    setState(() => _priceError = parsed == null);
-    if (parsed != null) {
-      widget.list.totalPrice = trimmed;
-    }
+    setState(() {
+      _priceError = parsed == null;
+      if (parsed != null) {
+        _draftTotalPrice = trimmed;
+      }
+    });
   }
 
   void _updateCurrency(String? value) {
     if (value == null) return;
-    setState(() => widget.list.currencySymbol = value);
+    setState(() => _draftCurrencySymbol = value);
   }
 
-  void _markCompleted(bool value) {
-    setState(() {
-      widget.list.isCompleted = value;
-      _updateTotalPrice(_totalPriceController.text);
-    });
+  void _savePriceChanges() {
+    if (_priceError) return;
+    widget.list.totalPrice = _draftTotalPrice;
+    widget.list.currencySymbol = _draftCurrencySymbol;
     if (mounted) Navigator.pop(context);
   }
 
@@ -285,7 +354,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
+                      color:
+                          Theme.of(context).inputDecorationTheme.fillColor ??
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
@@ -382,7 +453,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
   }
 
-  void _updateDropPosition(BuildContext context, String anchorItemId, Offset offset) {
+  void _updateDropPosition(
+    BuildContext context,
+    String anchorItemId,
+    Offset offset,
+  ) {
     final box = context.findRenderObject();
     if (box is! RenderBox) return;
     final local = box.globalToLocal(offset);
@@ -437,6 +512,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     bool withHandle = false,
   }) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
 
     return Dismissible(
       key: ValueKey(item.id),
@@ -519,7 +597,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   opacity: 0.92,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
+                      color: fillColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -533,7 +611,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       item: item,
                       onToggle: () {},
                       onNameTap: () {},
-                      leading: withHandle ? _categoryPicker(context, item) : null,
+                      leading: withHandle
+                          ? _categoryPicker(context, item)
+                          : null,
                     ),
                   ),
                 ),
@@ -587,35 +667,27 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             Text(
                               '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: checked == items.length && items.isNotEmpty
+                                color:
+                                    checked == items.length && items.isNotEmpty
                                     ? theme.colorScheme.primary
                                     : null,
                               ),
                             ),
                             const SizedBox(height: 16),
-                            AddItemFields(
-                              itemController: _itemController,
-                              quantityController: _quantityController,
-                              onChanged: _onItemTextChanged,
-                              onSubmit: _addFromText,
-                              suggestions: _suggestions.isNotEmpty
-                                  ? AutocompleteDropdown(
-                                      suggestions: _suggestions,
-                                      onSelect: _addFromSuggestion,
-                                    )
-                                  : null,
-                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 8),
-                      if (_hasCategories) ...[
+                      if (items.isNotEmpty) ...[
                         for (final entry in _groupedItems.entries)
                           CategorySection(
                             category: entry.key,
                             items: entry.value,
-                            isCollapsed: _collapsedCategories.contains(entry.key),
+                            isCollapsed: _collapsedCategories.contains(
+                              entry.key,
+                            ),
                             onToggleCollapse: () => _toggleCollapse(entry.key),
+                            onAdd: () => _showAddItemPopup(entry.key),
                             itemBuilder: (ctx, item) => _buildItemRow(
                               ctx,
                               item,
@@ -624,7 +696,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             ),
                           ),
                         const SizedBox(height: 8),
-                      ] else if (items.isEmpty)
+                      ] else
                         Padding(
                           padding: const EdgeInsets.all(40),
                           child: Center(
@@ -635,17 +707,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                               ),
                             ),
                           ),
-                        )
-                      else
-                        for (final item in items)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                            child: _buildItemRow(
-                              context,
-                              item,
-                              category: item.category ?? 'Other',
-                            ),
-                          ),
+                        ),
                       const SizedBox(height: 8),
                     ],
                   ),
@@ -653,18 +715,35 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    onPressed: _canSaveTemplate ? _saveAsTemplate : null,
-                    tooltip: 'Save as template',
-                    icon: Icon(
-                      LucideIcons.star,
-                      color: _canSaveTemplate
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: IconButton(
+                        onPressed: _canSaveTemplate ? _saveAsTemplate : null,
+                        tooltip: 'Save as template',
+                        icon: Icon(
+                          LucideIcons.star,
+                          color: _canSaveTemplate
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.35,
+                                ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const Spacer(),
+                    IconButton.filled(
+                      onPressed: () => _showAddItemPopup(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: fillColor,
+                        foregroundColor: theme.colorScheme.onSurface,
+                      ),
+                      tooltip: 'Add item',
+                      icon: const Icon(Icons.add, size: 22),
+                    ),
+                  ],
                 ),
               ),
               Padding(
@@ -674,7 +753,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     IconButton.filled(
                       onPressed: () => Navigator.pop(context),
                       style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.surface,
+                        backgroundColor: fillColor,
                         foregroundColor: theme.colorScheme.onSurface,
                       ),
                       tooltip: 'Back',
@@ -735,7 +814,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                     ),
                     const SizedBox(width: 8),
                     DropdownMenu<String>(
-                      initialSelection: widget.list.currencySymbol,
+                      initialSelection: _draftCurrencySymbol,
                       onSelected: _updateCurrency,
                       width: 96,
                       inputDecorationTheme: InputDecorationTheme(
@@ -755,23 +834,21 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       ),
                       dropdownMenuEntries: _currencyOptions
-                          .map((c) => DropdownMenuEntry<String>(value: c, label: c))
+                          .map(
+                            (c) =>
+                                DropdownMenuEntry<String>(value: c, label: c),
+                          )
                           .toList(),
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      onPressed: () => _markCompleted(!widget.list.isCompleted),
+                      onPressed: _priceError ? null : _savePriceChanges,
                       style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.surface,
+                        backgroundColor: fillColor,
                         foregroundColor: theme.colorScheme.onSurface,
                       ),
-                      tooltip: widget.list.isCompleted ? 'Re-open' : 'Complete',
-                      icon: Icon(
-                        widget.list.isCompleted
-                            ? LucideIcons.rotate_ccw
-                            : LucideIcons.check,
-                        size: 22,
-                      ),
+                      tooltip: 'Save price',
+                      icon: const Icon(LucideIcons.check, size: 22),
                     ),
                   ],
                 ),

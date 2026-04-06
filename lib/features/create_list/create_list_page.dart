@@ -51,6 +51,7 @@ class _CreateListPageState extends State<CreateListPage> {
   final Map<String, bool> _dropAfterByItemId = {};
   String? _previewAnchorItemId;
   bool? _previewPlaceAfter;
+  String? _pendingCategory;
 
   @override
   void initState() {
@@ -176,10 +177,13 @@ class _CreateListPageState extends State<CreateListPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
-          category: suggestion.category,
+          category: _pendingCategory == 'Other'
+              ? null
+              : _pendingCategory ?? suggestion.category,
         ),
       );
       _suggestions = [];
+      _pendingCategory = null;
     });
     _itemController.clear();
     _quantityController.clear();
@@ -196,13 +200,72 @@ class _CreateListPageState extends State<CreateListPage> {
           quantity: _quantityController.text.trim().isEmpty
               ? null
               : _quantityController.text.trim(),
-          category: SuggestionService.categoryFor(text),
+          category: _pendingCategory == 'Other'
+              ? null
+              : _pendingCategory ?? SuggestionService.categoryFor(text),
         ),
       );
       _suggestions = [];
+      _pendingCategory = null;
     });
     _itemController.clear();
     _quantityController.clear();
+  }
+
+  Future<void> _showAddItemPopup([String? category]) async {
+    _pendingCategory = category;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black38,
+      pageBuilder: (dialogContext, _, _) {
+        return MediaQuery.removeViewInsets(
+          context: dialogContext,
+          removeLeft: true,
+          removeTop: true,
+          removeRight: true,
+          removeBottom: true,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(dialogContext),
+            behavior: HitTestBehavior.opaque,
+            child: Material(
+              color: Colors.transparent,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: AddItemFields(
+                      itemController: _itemController,
+                      quantityController: _quantityController,
+                      itemFocusNode: _itemFocusNode,
+                      onChanged: _onItemTextChanged,
+                      onSubmit: () {
+                        if (_itemController.text.trim().isEmpty) return;
+                        _addFromText();
+                        Navigator.pop(dialogContext);
+                      },
+                      suggestions: _suggestions.isNotEmpty
+                          ? AutocompleteDropdown(
+                              suggestions: _suggestions,
+                              onSelect: (suggestion) {
+                                _addFromSuggestion(suggestion);
+                                Navigator.pop(dialogContext);
+                              },
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    _pendingCategory = null;
+    _suggestions = [];
   }
 
   void _dismissSuggestions() {
@@ -210,10 +273,10 @@ class _CreateListPageState extends State<CreateListPage> {
   }
 
   ShoppingList _buildListResult() => ShoppingList(
-      id: _uuid.v4(),
-      date: _selectedDate,
-      items: List.from(_items),
-    );
+    id: _uuid.v4(),
+    date: _selectedDate,
+    items: List.from(_items),
+  );
 
   void _popWithCurrentList() {
     Navigator.pop(context, _items.isEmpty ? null : _buildListResult());
@@ -281,7 +344,9 @@ class _CreateListPageState extends State<CreateListPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
+                      color:
+                          Theme.of(context).inputDecorationTheme.fillColor ??
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
@@ -374,7 +439,11 @@ class _CreateListPageState extends State<CreateListPage> {
     });
   }
 
-  void _updateDropPosition(BuildContext context, String anchorItemId, Offset offset) {
+  void _updateDropPosition(
+    BuildContext context,
+    String anchorItemId,
+    Offset offset,
+  ) {
     final box = context.findRenderObject();
     if (box is! RenderBox) return;
     final local = box.globalToLocal(offset);
@@ -429,6 +498,9 @@ class _CreateListPageState extends State<CreateListPage> {
     bool withHandle = false,
   }) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
 
     return Dismissible(
       key: ValueKey(item.id),
@@ -511,7 +583,7 @@ class _CreateListPageState extends State<CreateListPage> {
                   opacity: 0.92,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
+                      color: fillColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -525,7 +597,9 @@ class _CreateListPageState extends State<CreateListPage> {
                       item: item,
                       onToggle: () {},
                       onNameTap: () {},
-                      leading: withHandle ? _categoryPicker(context, item) : null,
+                      leading: withHandle
+                          ? _categoryPicker(context, item)
+                          : null,
                     ),
                   ),
                 ),
@@ -542,6 +616,9 @@ class _CreateListPageState extends State<CreateListPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -577,18 +654,6 @@ class _CreateListPageState extends State<CreateListPage> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              AddItemFields(
-                                itemController: _itemController,
-                                quantityController: _quantityController,
-                                onChanged: _onItemTextChanged,
-                                onSubmit: _addFromText,
-                                suggestions: _suggestions.isNotEmpty
-                                    ? AutocompleteDropdown(
-                                        suggestions: _suggestions,
-                                        onSelect: _addFromSuggestion,
-                                      )
-                                    : null,
-                              ),
                             ],
                           ),
                         ),
@@ -598,8 +663,12 @@ class _CreateListPageState extends State<CreateListPage> {
                             CategorySection(
                               category: entry.key,
                               items: entry.value,
-                              isCollapsed: _collapsedCategories.contains(entry.key),
-                              onToggleCollapse: () => _toggleCollapse(entry.key),
+                              isCollapsed: _collapsedCategories.contains(
+                                entry.key,
+                              ),
+                              onToggleCollapse: () =>
+                                  _toggleCollapse(entry.key),
+                              onAdd: () => _showAddItemPopup(entry.key),
                               itemBuilder: (ctx, item) => _buildItemRow(
                                 ctx,
                                 item,
@@ -614,29 +683,9 @@ class _CreateListPageState extends State<CreateListPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   child: Row(
                     children: [
-                      IconButton.filled(
-                        onPressed: _popWithCurrentList,
-                        style: IconButton.styleFrom(
-                          backgroundColor: theme.colorScheme.surface,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Back',
-                        icon: const Icon(LucideIcons.chevron_left, size: 22),
-                      ),
-                      const Spacer(),
-                      IconButton.filled(
-                        onPressed: () => _itemFocusNode.requestFocus(),
-                        style: IconButton.styleFrom(
-                          backgroundColor: theme.colorScheme.surface,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Add item',
-                        icon: const Icon(Icons.add, size: 22),
-                      ),
-                      const Spacer(),
                       SizedBox(
                         width: 48,
                         height: 48,
@@ -647,9 +696,37 @@ class _CreateListPageState extends State<CreateListPage> {
                             LucideIcons.star,
                             color: _canSaveTemplate
                                 ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.35,
+                                  ),
                           ),
                         ),
+                      ),
+                      const Spacer(),
+                      IconButton.filled(
+                        onPressed: () => _showAddItemPopup(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: fillColor,
+                          foregroundColor: theme.colorScheme.onSurface,
+                        ),
+                        tooltip: 'Add item',
+                        icon: const Icon(Icons.add, size: 22),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Row(
+                    children: [
+                      IconButton.filled(
+                        onPressed: _popWithCurrentList,
+                        style: IconButton.styleFrom(
+                          backgroundColor: fillColor,
+                          foregroundColor: theme.colorScheme.onSurface,
+                        ),
+                        tooltip: 'Back',
+                        icon: const Icon(LucideIcons.chevron_left, size: 22),
                       ),
                     ],
                   ),
