@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
+import '../../repositories/list_repository.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
 import '../stats/spending_stats_page.dart';
@@ -34,6 +36,24 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     Color(0xFF90A4AE),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final lists = await listRepository.getLists();
+    final templates = await listRepository.getTemplates();
+    final labels = await listRepository.getLabels();
+    if (!mounted) return;
+    setState(() {
+      _lists.addAll(lists);
+      _templates.addAll(templates);
+      _labelStore.addAll(labels);
+    });
+  }
+
   List<ShoppingList> get _activeLists =>
       _lists.where((list) => !list.isCompleted).toList();
 
@@ -53,6 +73,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     if (result != null) {
       setState(() => _lists.add(result));
+      unawaited(listRepository.saveList(result));
     }
   }
 
@@ -81,27 +102,26 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     if (result != null) {
       setState(() => _lists.add(result));
+      unawaited(listRepository.saveList(result));
     }
   }
 
   Future<void> _saveTemplate(String name, List<ShoppingListItem> items) async {
-    setState(() {
-      _templates.add(
-        ShoppingListTemplate(
-          id: _uuid.v4(),
-          name: name,
-          items: items
-              .map(
-                (item) => ShoppingListTemplateItem(
-                  name: item.name,
-                  quantity: item.quantity,
-                  category: item.category,
-                ),
-              )
-              .toList(),
-        ),
-      );
-    });
+    final template = ShoppingListTemplate(
+      id: _uuid.v4(),
+      name: name,
+      items: items
+          .map(
+            (item) => ShoppingListTemplateItem(
+              name: item.name,
+              quantity: item.quantity,
+              category: item.category,
+            ),
+          )
+          .toList(),
+    );
+    setState(() => _templates.add(template));
+    unawaited(listRepository.saveTemplate(template));
   }
 
   Color _labelColor(String label) {
@@ -207,6 +227,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         ),
       ),
     );
+    unawaited(listRepository.saveList(list));
     setState(() {});
   }
 
@@ -246,6 +267,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         setDialogState(() {
                           _templates.remove(template);
                         });
+                        unawaited(listRepository.deleteTemplate(template.id));
                         if (_templates.isEmpty && mounted) {
                           Navigator.pop(context);
                         }
@@ -288,18 +310,18 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                             ),
                           );
                           if (renamed != null && renamed.isNotEmpty) {
+                            final updated = ShoppingListTemplate(
+                              id: template.id,
+                              name: renamed,
+                              items: template.items,
+                            );
                             setDialogState(() {
                               final index = _templates.indexWhere(
                                 (item) => item.id == template.id,
                               );
-                              if (index != -1) {
-                                _templates[index] = ShoppingListTemplate(
-                                  id: template.id,
-                                  name: renamed,
-                                  items: template.items,
-                                );
-                              }
+                              if (index != -1) _templates[index] = updated;
                             });
+                            unawaited(listRepository.saveTemplate(updated));
                           }
                         },
                         onTap: () => Navigator.pop(context, template),
@@ -352,12 +374,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {
       _lists.remove(list);
     });
+    unawaited(listRepository.deleteList(list.id));
   }
 
   void _toggleCompleted(ShoppingList list) {
     setState(() {
       list.isCompleted = !list.isCompleted;
     });
+    unawaited(listRepository.saveList(list));
   }
 
   Future<void> _editLabels(ShoppingList list) async {
@@ -390,6 +414,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       setState(() {
         list.labels = result;
       });
+      unawaited(listRepository.saveList(list));
+      unawaited(listRepository.saveLabels(_labelStore));
     }
   }
 

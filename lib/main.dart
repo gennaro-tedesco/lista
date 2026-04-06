@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'app/themes.dart';
 import 'features/home/shopping_lists_home_page.dart';
+import 'repositories/list_repository.dart';
+import 'repositories/local_list_repository.dart';
+import 'services/settings_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SettingsService.load();
+  listRepository = await createLocalListRepository();
   runApp(const ListaApp());
 }
 

@@ -42,6 +42,8 @@ class _CreateListPageState extends State<CreateListPage> {
   DateTime _selectedDate = DateTime.now();
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
+  final FocusNode _itemFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
   final List<ShoppingListItem> _items = [];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
@@ -77,6 +79,8 @@ class _CreateListPageState extends State<CreateListPage> {
   void dispose() {
     _itemController.dispose();
     _quantityController.dispose();
+    _itemFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -92,8 +96,6 @@ class _CreateListPageState extends State<CreateListPage> {
   bool get _canSaveTemplate =>
       _items.isNotEmpty &&
       !_templateSignatures.contains(_signatureFromItems(_items));
-
-  bool get _hasCategories => _items.any((item) => item.category != null);
 
   Map<String, List<ShoppingListItem>> get _groupedItems {
     final map = <String, List<ShoppingListItem>>{};
@@ -207,13 +209,14 @@ class _CreateListPageState extends State<CreateListPage> {
     setState(() => _suggestions = []);
   }
 
-  void _saveList() {
-    final list = ShoppingList(
+  ShoppingList _buildListResult() => ShoppingList(
       id: _uuid.v4(),
       date: _selectedDate,
       items: List.from(_items),
     );
-    Navigator.pop(context, list);
+
+  void _popWithCurrentList() {
+    Navigator.pop(context, _items.isEmpty ? null : _buildListResult());
   }
 
   Future<void> _saveAsTemplate() async {
@@ -539,122 +542,120 @@ class _CreateListPageState extends State<CreateListPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: SafeArea(
-        child: GestureDetector(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _popWithCurrentList();
+      },
+      child: Scaffold(
+        body: GestureDetector(
           onTap: _dismissSuggestions,
           behavior: HitTestBehavior.translucent,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ListView(
-                  children: [
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Center(
-                            child: DateSelectorField(
-                              selectedDate: _selectedDate,
-                              onDateSelected: (date) =>
-                                  setState(() => _selectedDate = date),
-                            ),
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: ListView(
+                      controller: _scrollController,
+                      children: [
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Center(
+                                child: DateSelectorField(
+                                  selectedDate: _selectedDate,
+                                  onDateSelected: (date) =>
+                                      setState(() => _selectedDate = date),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              AddItemFields(
+                                itemController: _itemController,
+                                quantityController: _quantityController,
+                                onChanged: _onItemTextChanged,
+                                onSubmit: _addFromText,
+                                suggestions: _suggestions.isNotEmpty
+                                    ? AutocompleteDropdown(
+                                        suggestions: _suggestions,
+                                        onSelect: _addFromSuggestion,
+                                      )
+                                    : null,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          AddItemInput(
-                            itemController: _itemController,
-                            quantityController: _quantityController,
-                            onChanged: _onItemTextChanged,
-                            onSubmit: _addFromText,
-                            suggestions: _suggestions.isNotEmpty
-                                ? AutocompleteDropdown(
-                                    suggestions: _suggestions,
-                                    onSelect: _addFromSuggestion,
-                                  )
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_hasCategories) ...[
-                      const SizedBox(height: 4),
-                      for (final entry in _groupedItems.entries)
-                        CategorySection(
-                          category: entry.key,
-                          items: entry.value,
-                          isCollapsed: _collapsedCategories.contains(entry.key),
-                          onToggleCollapse: () => _toggleCollapse(entry.key),
-                          itemBuilder: (ctx, item) =>
-                              _buildItemRow(
+                        ),
+                        if (_items.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          for (final entry in _groupedItems.entries)
+                            CategorySection(
+                              category: entry.key,
+                              items: entry.value,
+                              isCollapsed: _collapsedCategories.contains(entry.key),
+                              onToggleCollapse: () => _toggleCollapse(entry.key),
+                              itemBuilder: (ctx, item) => _buildItemRow(
                                 ctx,
                                 item,
                                 category: entry.key,
                                 withHandle: true,
                               ),
+                            ),
+                          const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Row(
+                    children: [
+                      IconButton.filled(
+                        onPressed: _popWithCurrentList,
+                        style: IconButton.styleFrom(
+                          backgroundColor: theme.colorScheme.surface,
+                          foregroundColor: theme.colorScheme.onSurface,
                         ),
-                      const SizedBox(height: 8),
-                    ] else if (_items.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      ..._items.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: _buildItemRow(
-                            context,
-                            item,
-                            category: item.category ?? 'Other',
+                        tooltip: 'Back',
+                        icon: const Icon(LucideIcons.chevron_left, size: 22),
+                      ),
+                      const Spacer(),
+                      IconButton.filled(
+                        onPressed: () => _itemFocusNode.requestFocus(),
+                        style: IconButton.styleFrom(
+                          backgroundColor: theme.colorScheme.surface,
+                          foregroundColor: theme.colorScheme.onSurface,
+                        ),
+                        tooltip: 'Add item',
+                        icon: const Icon(Icons.add, size: 22),
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: IconButton(
+                          onPressed: _canSaveTemplate ? _saveAsTemplate : null,
+                          tooltip: 'Save as template',
+                          icon: Icon(
+                            LucideIcons.star,
+                            color: _canSaveTemplate
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.35),
                           ),
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    onPressed: _canSaveTemplate ? _saveAsTemplate : null,
-                    tooltip: 'Save as template',
-                    icon: Icon(
-                      LucideIcons.star,
-                      color: _canSaveTemplate
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton.filled(
-                      onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.surface,
-                        foregroundColor: theme.colorScheme.onSurface,
-                      ),
-                      tooltip: 'Back',
-                      icon: const Icon(LucideIcons.chevron_left, size: 22),
-                    ),
-                    IconButton.filled(
-                      onPressed: _saveList,
-                      style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.surface,
-                        foregroundColor: theme.colorScheme.onSurface,
-                      ),
-                      tooltip: 'Save',
-                      icon: const Icon(LucideIcons.check, size: 22),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

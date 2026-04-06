@@ -43,6 +43,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalPriceController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
@@ -66,6 +67,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -556,93 +558,97 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         theme.colorScheme.surfaceContainerHighest;
 
     return Scaffold(
-      body: SafeArea(
-        child: GestureDetector(
-          onTap: _dismissSuggestions,
-          behavior: HitTestBehavior.translucent,
+      body: GestureDetector(
+        onTap: _dismissSuggestions,
+        behavior: HitTestBehavior.translucent,
+        child: SafeArea(
           child: Column(
             children: [
               Expanded(
-                child: ListView(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Center(
-                            child: DateSelectorField(
-                              selectedDate: widget.list.date,
-                              onDateSelected: (date) =>
-                                  setState(() => widget.list.date = date),
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  child: ListView(
+                    controller: _scrollController,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: DateSelectorField(
+                                selectedDate: widget.list.date,
+                                onDateSelected: (date) =>
+                                    setState(() => widget.list.date = date),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: checked == items.length && items.isNotEmpty
-                                  ? theme.colorScheme.primary
+                            const SizedBox(height: 6),
+                            Text(
+                              '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: checked == items.length && items.isNotEmpty
+                                    ? theme.colorScheme.primary
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            AddItemFields(
+                              itemController: _itemController,
+                              quantityController: _quantityController,
+                              onChanged: _onItemTextChanged,
+                              onSubmit: _addFromText,
+                              suggestions: _suggestions.isNotEmpty
+                                  ? AutocompleteDropdown(
+                                      suggestions: _suggestions,
+                                      onSelect: _addFromSuggestion,
+                                    )
                                   : null,
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          AddItemInput(
-                            itemController: _itemController,
-                            quantityController: _quantityController,
-                            onChanged: _onItemTextChanged,
-                            onSubmit: _addFromText,
-                            suggestions: _suggestions.isNotEmpty
-                                ? AutocompleteDropdown(
-                                    suggestions: _suggestions,
-                                    onSelect: _addFromSuggestion,
-                                  )
-                                : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (_hasCategories) ...[
-                      for (final entry in _groupedItems.entries)
-                        CategorySection(
-                          category: entry.key,
-                          items: entry.value,
-                          isCollapsed: _collapsedCategories.contains(entry.key),
-                          onToggleCollapse: () => _toggleCollapse(entry.key),
-                          itemBuilder: (ctx, item) =>
-                              _buildItemRow(
-                                ctx,
-                                item,
-                                category: entry.key,
-                                withHandle: true,
-                              ),
+                          ],
                         ),
+                      ),
                       const SizedBox(height: 8),
-                    ] else if (items.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Center(
-                          child: Text(
-                            'No items in this list',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                      if (_hasCategories) ...[
+                        for (final entry in _groupedItems.entries)
+                          CategorySection(
+                            category: entry.key,
+                            items: entry.value,
+                            isCollapsed: _collapsedCategories.contains(entry.key),
+                            onToggleCollapse: () => _toggleCollapse(entry.key),
+                            itemBuilder: (ctx, item) => _buildItemRow(
+                              ctx,
+                              item,
+                              category: entry.key,
+                              withHandle: true,
                             ),
                           ),
-                        ),
-                      )
-                    else
-                      for (final item in items)
+                        const SizedBox(height: 8),
+                      ] else if (items.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: _buildItemRow(
-                            context,
-                            item,
-                            category: item.category ?? 'Other',
+                          padding: const EdgeInsets.all(40),
+                          child: Center(
+                            child: Text(
+                              'No items in this list',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
-                        ),
-                    const SizedBox(height: 8),
-                  ],
+                        )
+                      else
+                        for (final item in items)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: _buildItemRow(
+                              context,
+                              item,
+                              category: item.category ?? 'Other',
+                            ),
+                          ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -749,10 +755,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       ),
                       dropdownMenuEntries: _currencyOptions
-                          .map(
-                            (c) =>
-                                DropdownMenuEntry<String>(value: c, label: c),
-                          )
+                          .map((c) => DropdownMenuEntry<String>(value: c, label: c))
                           .toList(),
                     ),
                     const SizedBox(width: 8),
@@ -766,7 +769,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                       icon: Icon(
                         widget.list.isCompleted
                             ? LucideIcons.rotate_ccw
-                            : LucideIcons.circle_check,
+                            : LucideIcons.check,
                         size: 22,
                       ),
                     ),
