@@ -50,7 +50,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
-  Map<String, Color>? _labelColorCache;
+  final Map<String, Color> _labelColorMap = {};
+  int _labelCounter = 0;
   final List<StoredCode> _codes = [];
   final ScrollController _homeScrollController = ScrollController();
   final ScrollController _historyScrollController = ScrollController();
@@ -96,7 +97,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {
       _lists.addAll(lists);
       _templates.addAll(templates);
-      _labelStore.addAll(labels);
+      for (final label in labels) {
+        _addLabel(label);
+      }
       _codes.addAll(codes);
     });
   }
@@ -179,13 +182,15 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     unawaited(listRepository.saveTemplate(template));
   }
 
-  Color _labelColor(String label) {
-    _labelColorCache ??= {
-      for (var i = 0; i < _labelStore.length; i++)
-        _labelStore[i]: _labelColors[i % _labelColors.length],
-    };
-    return _labelColorCache![label] ?? _labelColors[0];
+  void _addLabel(String label) {
+    if (!_labelStore.contains(label)) {
+      _labelColorMap[label] = _labelColors[_labelCounter % _labelColors.length];
+      _labelStore.add(label);
+      _labelCounter++;
+    }
   }
+
+  Color _labelColor(String label) => _labelColorMap[label] ?? _labelColors[0];
 
   Widget _buildListCard(BuildContext context, ShoppingList list) {
     final theme = Theme.of(context);
@@ -492,16 +497,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   Future<void> _editLabels(ShoppingList list) async {
     bool labelDeleted = false;
-    var discovered = false;
     for (final l in _lists) {
       for (final label in l.labels) {
-        if (!_labelStore.contains(label)) {
-          _labelStore.add(label);
-          discovered = true;
-        }
+        _addLabel(label);
       }
     }
-    if (discovered) _labelColorCache = null;
     final result = await showDialog<List<String>>(
       context: context,
       builder: (_) => _EditLabelsDialog(
@@ -514,16 +514,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           });
         },
         onLabelCreated: (label) {
-          if (!_labelStore.contains(label)) {
-            _labelStore.add(label);
-            _labelColorCache = null;
-          }
+          _addLabel(label);
           unawaited(listRepository.saveLabels(_labelStore));
         },
         onLabelDeleted: (label) {
           setState(() {
             _labelStore.remove(label);
-            _labelColorCache = null;
+            _labelColorMap.remove(label);
             for (final list in _lists) {
               list.labels.remove(label);
             }
