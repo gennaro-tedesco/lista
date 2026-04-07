@@ -50,6 +50,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
+  Map<String, Color>? _labelColorCache;
   final List<StoredCode> _codes = [];
   final ScrollController _homeScrollController = ScrollController();
   final ScrollController _historyScrollController = ScrollController();
@@ -179,8 +180,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Color _labelColor(String label) {
-    final index = _labelStore.indexOf(label);
-    return _labelColors[(index == -1 ? 0 : index) % _labelColors.length];
+    _labelColorCache ??= {
+      for (var i = 0; i < _labelStore.length; i++)
+        _labelStore[i]: _labelColors[i % _labelColors.length],
+    };
+    return _labelColorCache![label] ?? _labelColors[0];
   }
 
   Widget _buildListCard(BuildContext context, ShoppingList list) {
@@ -487,13 +491,17 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _editLabels(ShoppingList list) async {
+    bool labelDeleted = false;
+    var discovered = false;
     for (final l in _lists) {
       for (final label in l.labels) {
         if (!_labelStore.contains(label)) {
           _labelStore.add(label);
+          discovered = true;
         }
       }
     }
+    if (discovered) _labelColorCache = null;
     final result = await showDialog<List<String>>(
       context: context,
       builder: (_) => _EditLabelsDialog(
@@ -508,15 +516,20 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         onLabelCreated: (label) {
           if (!_labelStore.contains(label)) {
             _labelStore.add(label);
+            _labelColorCache = null;
           }
+          unawaited(listRepository.saveLabels(_labelStore));
         },
         onLabelDeleted: (label) {
           setState(() {
             _labelStore.remove(label);
+            _labelColorCache = null;
             for (final list in _lists) {
               list.labels.remove(label);
             }
           });
+          labelDeleted = true;
+          unawaited(listRepository.saveLabels(_labelStore));
         },
       ),
     );
@@ -526,6 +539,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       });
       unawaited(listRepository.saveList(list));
       unawaited(listRepository.saveLabels(_labelStore));
+      if (labelDeleted) {
+        for (final item in _lists) {
+          unawaited(listRepository.saveList(item));
+        }
+      }
     }
   }
 
@@ -607,22 +625,28 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
     if (name == null || name.isEmpty || !mounted) return;
 
-    final dir = await getApplicationDocumentsDirectory();
-    final id = const Uuid().v4();
-    final codesDir = Directory('${dir.path}/qr_codes');
-    if (!await codesDir.exists()) await codesDir.create(recursive: true);
-    final imagePath = '${codesDir.path}/$id.png';
-    await File(imagePath).writeAsBytes(imageBytes);
-
-    final code = StoredCode(
-      id: id,
-      name: name,
-      imagePath: imagePath,
-      createdAt: DateTime.now(),
-    );
-    if (!mounted) return;
-    setState(() => _codes.add(code));
-    unawaited(listRepository.saveCode(code));
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final id = const Uuid().v4();
+      final codesDir = Directory('${dir.path}/qr_codes');
+      if (!await codesDir.exists()) await codesDir.create(recursive: true);
+      final imagePath = '${codesDir.path}/$id.png';
+      await File(imagePath).writeAsBytes(imageBytes);
+      final code = StoredCode(
+        id: id,
+        name: name,
+        imagePath: imagePath,
+        createdAt: DateTime.now(),
+      );
+      if (!mounted) return;
+      setState(() => _codes.add(code));
+      unawaited(listRepository.saveCode(code));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to save code')));
+    }
   }
 
   Future<void> _viewCode(StoredCode code) async {
@@ -688,8 +712,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     if (confirmed != true || !mounted) return;
     setState(() => _codes.remove(code));
     unawaited(listRepository.deleteCode(code.id));
-    final file = File(code.imagePath);
-    if (await file.exists()) await file.delete();
+    try {
+      final file = File(code.imagePath);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
   }
 
   String _formatDate(DateTime date) {

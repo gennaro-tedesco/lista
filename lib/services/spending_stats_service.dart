@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:math';
 import '../models/shopping_list.dart';
 
 enum GroupBy { none, week, month }
@@ -65,14 +65,14 @@ class SpendingStatsService {
     final variance = bucketTotals.length <= 1
         ? 0.0
         : bucketTotals
-                  .map((t) => math.pow(t - averageSpent, 2))
+                  .map((t) => pow(t - averageSpent, 2))
                   .fold<double>(0.0, (sum, v) => sum + v) /
               (bucketTotals.length - 1);
 
     return SpendingStats(
       totalSpent: totalSpent,
       averageSpent: averageSpent,
-      standardDeviation: math.sqrt(variance),
+      standardDeviation: sqrt(variance),
       listCount: filtered.length,
       buckets: buckets,
     );
@@ -110,14 +110,14 @@ class SpendingStatsService {
       final variance = values.length <= 1
           ? 0.0
           : values
-                    .map((v) => math.pow(v - avg, 2))
+                    .map((v) => pow(v - avg, 2))
                     .fold<double>(0.0, (sum, v) => sum + v) /
                 (values.length - 1);
       return SpendingBucket(
         key: e.key,
         total: total,
         average: avg,
-        standardDeviation: math.sqrt(variance),
+        standardDeviation: sqrt(variance),
       );
     }).toList()..sort((a, b) => a.key.compareTo(b.key));
   }

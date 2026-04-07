@@ -17,25 +17,33 @@ class LocalListRepository implements ListRepository {
     final dir = await getApplicationDocumentsDirectory();
     _file = File('${dir.path}/lista_data.json');
     if (!await _file.exists()) return;
-    final json = jsonDecode(await _file.readAsString()) as Map<String, dynamic>;
-    _lists =
-        (json['lists'] as List<dynamic>?)
-            ?.map((e) => ShoppingList.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-    _templates =
-        (json['templates'] as List<dynamic>?)
-            ?.map(
-              (e) => ShoppingListTemplate.fromJson(e as Map<String, dynamic>),
-            )
-            .toList() ??
-        [];
-    _labels = (json['labels'] as List<dynamic>?)?.cast<String>() ?? [];
-    _codes =
-        (json['codes'] as List<dynamic>?)
-            ?.map((e) => StoredCode.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
+    try {
+      final json =
+          jsonDecode(await _file.readAsString()) as Map<String, dynamic>;
+      _lists =
+          (json['lists'] as List<dynamic>?)
+              ?.map((e) => ShoppingList.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+      _templates =
+          (json['templates'] as List<dynamic>?)
+              ?.map(
+                (e) => ShoppingListTemplate.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [];
+      _labels = (json['labels'] as List<dynamic>?)?.cast<String>() ?? [];
+      _codes =
+          (json['codes'] as List<dynamic>?)
+              ?.map((e) => StoredCode.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [];
+    } catch (_) {
+      _lists = [];
+      _templates = [];
+      _labels = [];
+      _codes = [];
+    }
   }
 
   Future<void> _persist() => _file.writeAsString(

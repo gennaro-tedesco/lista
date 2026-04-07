@@ -337,7 +337,7 @@ class AppThemes {
         thumbColor: WidgetStatePropertyAll(primary),
         trackColor: WidgetStatePropertyAll(background),
         trackBorderColor: WidgetStatePropertyAll(Colors.transparent),
-        thickness: const WidgetStatePropertyAll(9),
+        thickness: const WidgetStatePropertyAll(7),
         radius: const Radius.circular(999),
         thumbVisibility: const WidgetStatePropertyAll(true),
         trackVisibility: const WidgetStatePropertyAll(true),

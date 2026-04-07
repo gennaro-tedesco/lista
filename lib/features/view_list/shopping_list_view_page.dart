@@ -8,12 +8,14 @@ import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
+import '../../utils/template_utils.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
+import '../../widgets/template_saved_toast.dart';
 
 const _uuid = Uuid();
 
@@ -65,7 +67,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _draftCurrencySymbol = widget.list.currencySymbol;
     _totalPriceController.text = _draftTotalPrice ?? '';
     _templateSignatures = widget.existingTemplates
-        .map((template) => _signatureFromTemplateItems(template.items))
+        .map((template) => signatureFromTemplateItems(template.items))
         .toSet();
   }
 
@@ -79,34 +81,22 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     super.dispose();
   }
 
-  String _signatureFromItems(List<ShoppingListItem> items) => items
-      .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
-      .join('||');
-
-  String _signatureFromTemplateItems(List<ShoppingListTemplateItem> items) =>
-      items
-          .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
-          .join('||');
-
   bool get _canSaveTemplate =>
       widget.list.items.isNotEmpty &&
-      !_templateSignatures.contains(_signatureFromItems(widget.list.items));
-
-  Map<String, List<ShoppingListItem>> get _groupedItems {
-    final map = <String, List<ShoppingListItem>>{};
-    for (final item in widget.list.items) {
-      map.putIfAbsent(item.category ?? 'Other', () => []).add(item);
-    }
-    return Map.fromEntries(
-      kCategoryOrder
-          .where(map.containsKey)
-          .map((cat) => MapEntry(cat, map[cat]!)),
-    );
-  }
+      !_templateSignatures.contains(signatureFromItems(widget.list.items));
 
   void _toggle(String id) {
     final item = widget.list.items.firstWhere((i) => i.id == id);
-    setState(() => item.isChecked = !item.isChecked);
+    setState(() {
+      item.isChecked = !item.isChecked;
+      final category = item.category ?? 'Other';
+      final categoryItems = widget.list.items.where(
+        (i) => (i.category ?? 'Other') == category,
+      );
+      if (categoryItems.every((i) => i.isChecked)) {
+        _collapsedCategories.add(category);
+      }
+    });
   }
 
   void _deleteItem(String id) {
@@ -335,59 +325,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     );
     if (!mounted) return;
     setState(() {
-      _templateSignatures.add(_signatureFromItems(widget.list.items));
+      _templateSignatures.add(signatureFromItems(widget.list.items));
     });
-    _showTemplateSavedConfirmation(name);
-  }
-
-  Future<void> _showTemplateSavedConfirmation(String name) async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      barrierLabel: 'Template saved',
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 160),
-      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) =>
-          FadeTransition(
-            opacity: animation,
-            child: SafeArea(
-              child: Center(
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).inputDecorationTheme.fillColor ??
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.14),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      'Saved $name as template!',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (navigator.mounted && navigator.canPop()) {
-      navigator.pop();
-    }
+    showTemplateSavedToast(context, name);
   }
 
   Future<void> _showCategoryMenu(
@@ -691,7 +631,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       ),
                       if (items.isNotEmpty) ...[
-                        for (final entry in _groupedItems.entries)
+                        for (final entry in groupedItems(widget.list.items).entries)
                           CategorySection(
                             category: entry.key,
                             items: entry.value,

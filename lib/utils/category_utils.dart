@@ -2,6 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../models/shopping_list_item.dart';
 
+const List<String> kCategoryOrder = [
+  'Fruit',
+  'Vegetable',
+  'Drinks',
+  'Meat',
+  'Fish & Seafood',
+  'Dairy',
+  'Bakery',
+  'Pantry',
+  'Other',
+];
+
+Map<String, List<ShoppingListItem>> groupedItems(
+  List<ShoppingListItem> items,
+) {
+  final map = <String, List<ShoppingListItem>>{};
+  for (final item in items) {
+    map.putIfAbsent(item.category ?? 'Other', () => []).add(item);
+  }
+  return Map.fromEntries(
+    kCategoryOrder
+        .where(map.containsKey)
+        .map((cat) => MapEntry(cat, map[cat]!)),
+  );
+}
+
 IconData categoryIcon(String category) => switch (category) {
   'Fruit' => LucideIcons.apple,
   'Vegetable' => LucideIcons.carrot,
