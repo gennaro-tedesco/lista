@@ -14,9 +14,7 @@ const List<String> kCategoryOrder = [
   'Other',
 ];
 
-Map<String, List<ShoppingListItem>> groupedItems(
-  List<ShoppingListItem> items,
-) {
+Map<String, List<ShoppingListItem>> groupedItems(List<ShoppingListItem> items) {
   final map = <String, List<ShoppingListItem>>{};
   for (final item in items) {
     map.putIfAbsent(item.category ?? 'Other', () => []).add(item);

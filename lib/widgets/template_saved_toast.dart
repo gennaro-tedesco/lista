@@ -22,7 +22,8 @@ Future<void> showTemplateSavedToast(BuildContext context, String name) async {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).inputDecorationTheme.fillColor ??
+                    color:
+                        Theme.of(context).inputDecorationTheme.fillColor ??
                         Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [

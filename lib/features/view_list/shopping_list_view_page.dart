@@ -631,7 +631,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         ),
                       ),
                       if (items.isNotEmpty) ...[
-                        for (final entry in groupedItems(widget.list.items).entries)
+                        for (final entry in groupedItems(
+                          widget.list.items,
+                        ).entries)
                           CategorySection(
                             category: entry.key,
                             items: entry.value,

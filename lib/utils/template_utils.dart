@@ -5,7 +5,6 @@ String signatureFromItems(List<ShoppingListItem> items) => items
     .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
     .join('||');
 
-String signatureFromTemplateItems(List<ShoppingListTemplateItem> items) =>
-    items
-        .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
-        .join('||');
+String signatureFromTemplateItems(List<ShoppingListTemplateItem> items) => items
+    .map((item) => '${item.name.trim()}|${(item.quantity ?? '').trim()}')
+    .join('||');
