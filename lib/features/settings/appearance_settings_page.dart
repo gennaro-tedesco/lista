@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../app/themes.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
@@ -7,7 +8,11 @@ class AppearanceSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([themeNotifier, uiFontScaleNotifier]),
+      animation: Listenable.merge([
+        themeNotifier,
+        uiFontScaleNotifier,
+        appFontNotifier,
+      ]),
       builder: (context, child) {
         final theme = Theme.of(context);
         return Scaffold(
@@ -72,6 +77,39 @@ class AppearanceSettingsPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Font', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<AppFontOption>(
+                        initialValue: appFontNotifier.value,
+                        decoration: const InputDecoration(),
+                        items: AppFontOption.values
+                            .map(
+                              (option) => DropdownMenuItem<AppFontOption>(
+                                value: option,
+                                child: Text(
+                                  option.label,
+                                  style: _fontPreviewStyle(option),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            appFontNotifier.value = value;
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -79,3 +117,11 @@ class AppearanceSettingsPage extends StatelessWidget {
     );
   }
 }
+
+TextStyle? _fontPreviewStyle(AppFontOption option) => switch (option) {
+  AppFontOption.system => null,
+  AppFontOption.lexend => GoogleFonts.lexend(),
+  AppFontOption.ubuntu => GoogleFonts.ubuntu(),
+  AppFontOption.josefinSans => GoogleFonts.josefinSans(),
+  AppFontOption.nunito => GoogleFonts.nunito(),
+};

@@ -5,14 +5,17 @@ import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
+import '../../repositories/list_repository.dart';
 import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
+import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
+import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
 import '../../widgets/template_saved_toast.dart';
 
@@ -55,6 +58,7 @@ class _CreateListPageState extends State<CreateListPage> {
   String? _previewAnchorItemId;
   bool? _previewPlaceAfter;
   String? _pendingCategory;
+  ShoppingList? _sharedDraftList;
 
   @override
   void initState() {
@@ -262,8 +266,12 @@ class _CreateListPageState extends State<CreateListPage> {
   }
 
   ShoppingList _buildListResult() => ShoppingList(
-    id: _uuid.v4(),
+    id: _sharedDraftList?.id ?? _uuid.v4(),
     date: _selectedDate,
+    labels: _sharedDraftList?.labels,
+    isCompleted: _sharedDraftList?.isCompleted ?? false,
+    totalPrice: _sharedDraftList?.totalPrice,
+    currencySymbol: _sharedDraftList?.currencySymbol ?? '€',
     items: List.from(_items),
   );
 
@@ -286,14 +294,15 @@ class _CreateListPageState extends State<CreateListPage> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(hintText: 'Template name'),
         ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            icon: const Icon(Icons.close),
           ),
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Save'),
+            icon: const Icon(Icons.check),
           ),
         ],
       ),
@@ -309,6 +318,36 @@ class _CreateListPageState extends State<CreateListPage> {
       _templateSignatures.add(signatureFromItems(_items));
     });
     showTemplateSavedToast(context, name);
+  }
+
+  Future<void> _shareCurrentList() async {
+    if (_items.isEmpty) {
+      return;
+    }
+    final list = _buildListResult();
+    try {
+      await listRepository.saveList(list);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _sharedDraftList = list;
+      });
+      await showDialog<void>(
+        context: context,
+        builder: (_) => ShareDialog(
+          getShares: () => listRepository.getListShares(list.id),
+          getUsers: listRepository.getUsers,
+          share: (userId) => listRepository.shareList(list.id, userId),
+          unshare: (userId) => listRepository.unshareList(list.id, userId),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Future<void> _showCategoryMenu(
@@ -579,7 +618,7 @@ class _CreateListPageState extends State<CreateListPage> {
                     child: ListView(
                       controller: _scrollController,
                       children: [
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 56),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                           child: Column(
@@ -622,26 +661,10 @@ class _CreateListPageState extends State<CreateListPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: IconButton(
-                          onPressed: _canSaveTemplate ? _saveAsTemplate : null,
-                          tooltip: 'Save as template',
-                          icon: Icon(
-                            LucideIcons.star,
-                            color: _canSaveTemplate
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.35,
-                                  ),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
                       IconButton.filled(
                         onPressed: () => _showAddItemPopup(),
                         style: IconButton.styleFrom(
@@ -654,18 +677,52 @@ class _CreateListPageState extends State<CreateListPage> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                SafeArea(
+                  top: false,
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      IconButton.filled(
-                        onPressed: _popWithCurrentList,
-                        style: IconButton.styleFrom(
-                          backgroundColor: fillColor,
-                          foregroundColor: theme.colorScheme.onSurface,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                        child: IconButton.filled(
+                          onPressed: _popWithCurrentList,
+                          style: IconButton.styleFrom(
+                            backgroundColor: fillColor,
+                            foregroundColor: _items.isEmpty
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.primary,
+                          ),
+                          tooltip: _items.isEmpty ? 'Back' : 'Save',
+                          icon: Icon(
+                            _items.isEmpty
+                                ? LucideIcons.chevron_left
+                                : LucideIcons.check,
+                            size: 22,
+                          ),
                         ),
-                        tooltip: 'Back',
-                        icon: const Icon(LucideIcons.chevron_left, size: 22),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ActionTabButton(
+                                icon: LucideIcons.star,
+                                onTap: _canSaveTemplate
+                                    ? _saveAsTemplate
+                                    : null,
+                              ),
+                            ),
+                            if (authStateNotifier.value)
+                              Expanded(
+                                child: ActionTabButton(
+                                  icon: Icons.person_add_outlined,
+                                  onTap: _items.isNotEmpty
+                                      ? _shareCurrentList
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

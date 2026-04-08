@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 final themeNotifier = ValueNotifier<AppThemeOption>(AppThemeOption.none);
 final uiFontScaleNotifier = ValueNotifier<double>(1.0);
+final appFontNotifier = ValueNotifier<AppFontOption>(AppFontOption.system);
 
 enum AppThemeOption {
   none,
@@ -11,6 +13,82 @@ enum AppThemeOption {
   everforestDark,
   solarizedDark,
   solarizedLight,
+}
+
+enum AppFontOption { system, lexend, ubuntu, josefinSans, nunito }
+
+extension AppFontOptionExt on AppFontOption {
+  String get label => switch (this) {
+    AppFontOption.system => 'System',
+    AppFontOption.lexend => 'Lexend',
+    AppFontOption.ubuntu => 'Ubuntu',
+    AppFontOption.josefinSans => 'Josefin Sans',
+    AppFontOption.nunito => 'Nunito',
+  };
+
+  ThemeData apply(ThemeData theme) {
+    final textTheme = switch (this) {
+      AppFontOption.system => theme.textTheme,
+      AppFontOption.lexend => GoogleFonts.lexendTextTheme(theme.textTheme),
+      AppFontOption.ubuntu => GoogleFonts.ubuntuTextTheme(theme.textTheme),
+      AppFontOption.josefinSans => GoogleFonts.josefinSansTextTheme(
+        theme.textTheme,
+      ),
+      AppFontOption.nunito => GoogleFonts.nunitoTextTheme(theme.textTheme),
+    };
+    return theme.copyWith(
+      textTheme: textTheme,
+      primaryTextTheme: switch (this) {
+        AppFontOption.system => theme.primaryTextTheme,
+        AppFontOption.lexend => GoogleFonts.lexendTextTheme(
+          theme.primaryTextTheme,
+        ),
+        AppFontOption.ubuntu => GoogleFonts.ubuntuTextTheme(
+          theme.primaryTextTheme,
+        ),
+        AppFontOption.josefinSans => GoogleFonts.josefinSansTextTheme(
+          theme.primaryTextTheme,
+        ),
+        AppFontOption.nunito => GoogleFonts.nunitoTextTheme(
+          theme.primaryTextTheme,
+        ),
+      },
+      appBarTheme: theme.appBarTheme.copyWith(
+        titleTextStyle: _applyTextStyle(this, theme.appBarTheme.titleTextStyle),
+      ),
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        hintStyle: _applyTextStyle(this, theme.inputDecorationTheme.hintStyle),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: theme.textButtonTheme.style?.copyWith(
+          textStyle: WidgetStateProperty.resolveWith((states) {
+            final base = theme.textButtonTheme.style?.textStyle?.resolve(
+              states,
+            );
+            return _applyTextStyle(this, base);
+          }),
+        ),
+      ),
+      dialogTheme: theme.dialogTheme.copyWith(
+        titleTextStyle: _applyTextStyle(this, theme.dialogTheme.titleTextStyle),
+        contentTextStyle: _applyTextStyle(
+          this,
+          theme.dialogTheme.contentTextStyle,
+        ),
+      ),
+    );
+  }
+}
+
+TextStyle? _applyTextStyle(AppFontOption option, TextStyle? style) {
+  if (style == null) return null;
+  return switch (option) {
+    AppFontOption.system => style.copyWith(fontFamily: null),
+    AppFontOption.lexend => GoogleFonts.lexend(textStyle: style),
+    AppFontOption.ubuntu => GoogleFonts.ubuntu(textStyle: style),
+    AppFontOption.josefinSans => GoogleFonts.josefinSans(textStyle: style),
+    AppFontOption.nunito => GoogleFonts.nunito(textStyle: style),
+  };
 }
 
 extension AppThemeOptionExt on AppThemeOption {
@@ -34,8 +112,9 @@ extension AppThemeOptionExt on AppThemeOption {
     AppThemeOption.solarizedLight => const Color(0xFF268BD2),
   };
 
-  ThemeData get themeData =>
-      AppThemes.get(this, fontScale: uiFontScaleNotifier.value);
+  ThemeData get themeData => appFontNotifier.value.apply(
+    AppThemes.get(this, fontScale: uiFontScaleNotifier.value),
+  );
 }
 
 class AppThemes {

@@ -17,6 +17,8 @@ abstract interface class ListRepository {
   Future<void> saveCode(StoredCode code);
   Future<void> deleteCode(String id);
   Future<List<UserProfile>> getUsers();
+  Future<List<String>> getListShares(String listId);
+  Future<List<String>> getTemplateShares(String templateId);
   Future<void> shareList(String listId, String withUserId);
   Future<void> unshareList(String listId, String withUserId);
   Future<void> shareTemplate(String templateId, String withUserId);

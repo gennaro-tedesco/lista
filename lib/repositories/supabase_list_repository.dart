@@ -192,6 +192,24 @@ class SupabaseListRepository implements ListRepository {
   Future<void> deleteCode(String id) => _local.deleteCode(id);
 
   @override
+  Future<List<String>> getListShares(String listId) async {
+    final data = await _client
+        .from('list_shares')
+        .select('shared_with_user_id')
+        .eq('list_id', listId);
+    return data.map<String>((r) => r['shared_with_user_id'] as String).toList();
+  }
+
+  @override
+  Future<List<String>> getTemplateShares(String templateId) async {
+    final data = await _client
+        .from('template_shares')
+        .select('shared_with_user_id')
+        .eq('template_id', templateId);
+    return data.map<String>((r) => r['shared_with_user_id'] as String).toList();
+  }
+
+  @override
   Future<List<UserProfile>> getUsers() async {
     final data = await _client
         .from('profiles')

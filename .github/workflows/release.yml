@@ -30,7 +30,8 @@ jobs:
           flutter build apk --release \
             --build-name=${{ steps.version.outputs.version }} \
             --build-number=${{ github.run_number }} \
-            --dart-define=APP_VERSION=v${{ steps.version.outputs.version }}
+            --dart-define=APP_VERSION=v${{ steps.version.outputs.version }} \
+            --dart-define-from-file=config.json
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

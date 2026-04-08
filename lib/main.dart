@@ -29,11 +29,17 @@ class ListaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([themeNotifier, uiFontScaleNotifier]),
+      animation: Listenable.merge([
+        themeNotifier,
+        uiFontScaleNotifier,
+        appFontNotifier,
+      ]),
       builder: (context, child) => MaterialApp(
         title: 'Lista',
         theme: themeNotifier.value.themeData,
-        darkTheme: AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),
+        darkTheme: appFontNotifier.value.apply(
+          AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),
+        ),
         themeMode: themeNotifier.value == AppThemeOption.none
             ? ThemeMode.system
             : ThemeMode.light,

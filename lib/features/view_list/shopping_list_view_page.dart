@@ -6,14 +6,17 @@ import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
+import '../../repositories/list_repository.dart';
 import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
+import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
+import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
 import '../../widgets/template_saved_toast.dart';
 
@@ -51,11 +54,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
-  late String? _draftTotalPrice;
-  late String _draftCurrencySymbol;
   final Set<String> _collapsedCategories = {};
   String? _pendingCategory;
-  bool _priceError = false;
   final Map<String, bool> _dropAfterByItemId = {};
   String? _previewAnchorItemId;
   bool? _previewPlaceAfter;
@@ -63,9 +63,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   @override
   void initState() {
     super.initState();
-    _draftTotalPrice = widget.list.totalPrice;
-    _draftCurrencySymbol = widget.list.currencySymbol;
-    _totalPriceController.text = _draftTotalPrice ?? '';
+    _totalPriceController.text = widget.list.totalPrice ?? '';
     _templateSignatures = widget.existingTemplates
         .map((template) => signatureFromTemplateItems(template.items))
         .toSet();
@@ -236,34 +234,151 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _suggestions = [];
   }
 
-  void _updateTotalPrice(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      setState(() {
-        _draftTotalPrice = null;
-        _priceError = false;
-      });
-      return;
-    }
-    final parsed = double.tryParse(trimmed.replaceAll(',', '.'));
-    setState(() {
-      _priceError = parsed == null;
-      if (parsed != null) {
-        _draftTotalPrice = trimmed;
-      }
-    });
+  Future<void> _openPriceDialog() async {
+    String? draftPrice = widget.list.totalPrice;
+    String draftCurrency = widget.list.currencySymbol;
+    bool priceError = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final theme = Theme.of(dialogContext);
+          final fillColor =
+              theme.inputDecorationTheme.fillColor ??
+              theme.colorScheme.surfaceContainerHighest;
+          return AlertDialog(
+            title: const Text('Total price'),
+            content: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _totalPriceController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    autofocus: true,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'Total price',
+                      filled: true,
+                      fillColor: fillColor,
+                      errorText: priceError ? '' : null,
+                      errorStyle: const TextStyle(height: 0),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.error,
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.error,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      final trimmed = v.trim();
+                      if (trimmed.isEmpty) {
+                        draftPrice = null;
+                        priceError = false;
+                      } else {
+                        final parsed = double.tryParse(
+                          trimmed.replaceAll(',', '.'),
+                        );
+                        priceError = parsed == null;
+                        if (parsed != null) draftPrice = trimmed;
+                      }
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownMenu<String>(
+                  initialSelection: draftCurrency,
+                  onSelected: (v) =>
+                      setDialogState(() => draftCurrency = v ?? draftCurrency),
+                  width: 96,
+                  inputDecorationTheme: InputDecorationTheme(
+                    filled: true,
+                    fillColor: fillColor,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  dropdownMenuEntries: _currencyOptions
+                      .map((c) => DropdownMenuEntry<String>(value: c, label: c))
+                      .toList(),
+                ),
+              ],
+            ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              IconButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                icon: const Icon(Icons.close),
+              ),
+              IconButton(
+                onPressed: priceError
+                    ? null
+                    : () {
+                        widget.list.totalPrice = draftPrice;
+                        widget.list.currencySymbol = draftCurrency;
+                        Navigator.pop(dialogContext);
+                      },
+                icon: const Icon(Icons.check),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    setState(() {});
   }
 
-  void _updateCurrency(String? value) {
-    if (value == null) return;
-    setState(() => _draftCurrencySymbol = value);
-  }
-
-  void _savePriceChanges() {
-    if (_priceError) return;
-    widget.list.totalPrice = _draftTotalPrice;
-    widget.list.currencySymbol = _draftCurrencySymbol;
-    if (mounted) Navigator.pop(context);
+  Future<void> _shareList() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ShareDialog(
+        getShares: () => listRepository.getListShares(widget.list.id),
+        getUsers: listRepository.getUsers,
+        share: (userId) => listRepository.shareList(widget.list.id, userId),
+        unshare: (userId) => listRepository.unshareList(widget.list.id, userId),
+      ),
+    );
   }
 
   Future<void> _editItem(String id) async {
@@ -306,14 +421,15 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(hintText: 'Template name'),
         ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            icon: const Icon(Icons.close),
           ),
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Save'),
+            icon: const Icon(Icons.check),
           ),
         ],
       ),
@@ -599,6 +715,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   child: ListView(
                     controller: _scrollController,
                     children: [
+                      const SizedBox(height: 56),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                         child: Column(
@@ -668,26 +785,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: IconButton(
-                        onPressed: _canSaveTemplate ? _saveAsTemplate : null,
-                        tooltip: 'Save as template',
-                        icon: Icon(
-                          LucideIcons.star,
-                          color: _canSaveTemplate
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.35,
-                                ),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
                     IconButton.filled(
                       onPressed: () => _showAddItemPopup(),
                       style: IconButton.styleFrom(
@@ -700,109 +801,47 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              SafeArea(
+                top: false,
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    IconButton.filled(
-                      onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: fillColor,
-                        foregroundColor: theme.colorScheme.onSurface,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                      child: IconButton.filled(
+                        onPressed: () => Navigator.pop(context),
+                        style: IconButton.styleFrom(
+                          backgroundColor: fillColor,
+                          foregroundColor: theme.colorScheme.onSurface,
+                        ),
+                        tooltip: 'Back',
+                        icon: const Icon(LucideIcons.chevron_left, size: 22),
                       ),
-                      tooltip: 'Back',
-                      icon: const Icon(LucideIcons.chevron_left, size: 22),
                     ),
-                    const SizedBox(width: 8),
                     Expanded(
-                      child: TextField(
-                        controller: _totalPriceController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Total price',
-                          filled: true,
-                          fillColor: fillColor,
-                          errorText: _priceError ? '' : null,
-                          errorStyle: const TextStyle(height: 0),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.primary,
-                              width: 1.5,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ActionTabButton(
+                              icon: LucideIcons.star,
+                              onTap: _canSaveTemplate ? _saveAsTemplate : null,
                             ),
                           ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.error,
-                              width: 1.5,
+                          if (authStateNotifier.value)
+                            Expanded(
+                              child: ActionTabButton(
+                                icon: Icons.person_add_outlined,
+                                onTap: _shareList,
+                              ),
+                            ),
+                          Expanded(
+                            child: ActionTabButton(
+                              icon: Icons.euro_outlined,
+                              onTap: _openPriceDialog,
                             ),
                           ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.error,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                         ],
-                        onChanged: _updateTotalPrice,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    DropdownMenu<String>(
-                      initialSelection: _draftCurrencySymbol,
-                      onSelected: _updateCurrency,
-                      width: 96,
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor: fillColor,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(999),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(999),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      dropdownMenuEntries: _currencyOptions
-                          .map(
-                            (c) =>
-                                DropdownMenuEntry<String>(value: c, label: c),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: _priceError ? null : _savePriceChanges,
-                      style: IconButton.styleFrom(
-                        backgroundColor: fillColor,
-                        foregroundColor: theme.colorScheme.onSurface,
-                      ),
-                      tooltip: 'Save price',
-                      icon: const Icon(LucideIcons.check, size: 22),
                     ),
                   ],
                 ),

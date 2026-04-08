@@ -12,6 +12,7 @@ import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../../models/stored_code.dart';
 import '../../repositories/list_repository.dart';
+import '../../widgets/share_dialog.dart';
 import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
 import '../settings/settings_page.dart';
@@ -56,6 +57,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<StoredCode> _codes = [];
   final ScrollController _homeScrollController = ScrollController();
   final ScrollController _historyScrollController = ScrollController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isCreateMenuOpen = false;
   _Tab _tab = _Tab.home;
   RealtimeChannel? _realtimeChannel;
@@ -164,6 +166,15 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     });
   }
 
+  void _upsertList(ShoppingList list) {
+    final index = _lists.indexWhere((item) => item.id == list.id);
+    if (index == -1) {
+      _lists.add(list);
+    } else {
+      _lists[index] = list;
+    }
+  }
+
   List<ShoppingList> get _activeLists =>
       (_lists.where((list) => !list.isCompleted).toList()
         ..sort((a, b) => b.date.compareTo(a.date)));
@@ -186,7 +197,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     if (result != null) {
       setState(() {
         _tab = _Tab.home;
-        _lists.add(result);
+        _upsertList(result);
       });
       _run(listRepository.saveList(result));
     }
@@ -218,7 +229,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     if (result != null) {
       setState(() {
         _tab = _Tab.home;
-        _lists.add(result);
+        _upsertList(result);
       });
       _run(listRepository.saveList(result));
     }
@@ -332,6 +343,15 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ),
                 ),
               ],
+              if (authStateNotifier.value) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.person_add_outlined, size: 18),
+                  onPressed: () => _shareList(list),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                ),
+              ],
             ],
           ),
         ),
@@ -351,13 +371,21 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHighest;
     return Material(
-      color: Colors.transparent,
+      color: fillColor,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.zero,
         child: Container(
           height: 56,
-          color: selected ? theme.scaffoldBackgroundColor : fillColor,
+          decoration: selected
+              ? BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                )
+              : null,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -383,6 +411,31 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _shareList(ShoppingList list) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ShareDialog(
+        getShares: () => listRepository.getListShares(list.id),
+        getUsers: listRepository.getUsers,
+        share: (userId) => listRepository.shareList(list.id, userId),
+        unshare: (userId) => listRepository.unshareList(list.id, userId),
+      ),
+    );
+  }
+
+  Future<void> _shareTemplate(ShoppingListTemplate template) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ShareDialog(
+        getShares: () => listRepository.getTemplateShares(template.id),
+        getUsers: listRepository.getUsers,
+        share: (userId) => listRepository.shareTemplate(template.id, userId),
+        unshare: (userId) =>
+            listRepository.unshareTemplate(template.id, userId),
       ),
     );
   }
@@ -465,17 +518,18 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                                   hintText: 'Template name',
                                 ),
                               ),
+                              actionsAlignment: MainAxisAlignment.spaceBetween,
                               actions: [
-                                TextButton(
+                                IconButton(
                                   onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
+                                  icon: const Icon(Icons.close),
                                 ),
-                                TextButton(
+                                IconButton(
                                   onPressed: () => Navigator.pop(
                                     context,
                                     controller.text.trim(),
                                   ),
-                                  child: const Text('Save'),
+                                  icon: const Icon(Icons.check),
                                 ),
                               ],
                             ),
@@ -495,6 +549,16 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                             _run(listRepository.saveTemplate(updated));
                           }
                         },
+                        trailing: authStateNotifier.value
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.person_add_outlined,
+                                  size: 18,
+                                ),
+                                onPressed: () => _shareTemplate(template),
+                                visualDensity: VisualDensity.compact,
+                              )
+                            : null,
                         onTap: () => Navigator.pop(context, template),
                       ),
                     ),
@@ -526,11 +590,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _openSettings() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SettingsPage()),
-    );
-    setState(() {});
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   Future<void> _openStats() async {
@@ -661,17 +721,18 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           controller: nameController,
           autofocus: true,
           textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'e.g. Loyalty card'),
+          decoration: const InputDecoration(hintText: 'QR code name'),
           onSubmitted: (v) => Navigator.pop(context, v.trim()),
         ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            icon: const Icon(Icons.close),
           ),
-          TextButton(
+          IconButton(
             onPressed: () => Navigator.pop(context, nameController.text.trim()),
-            child: const Text('Save'),
+            icon: const Icon(Icons.check),
           ),
         ],
       ),
@@ -729,6 +790,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           decoration: const InputDecoration(hintText: 'Code name'),
           onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
         ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           IconButton(
             onPressed: () => Navigator.pop(ctx),
@@ -754,6 +816,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete ${code.name}?'),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           IconButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -808,6 +871,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     };
 
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: SizedBox(
+        width: MediaQuery.sizeOf(context).width * 0.7,
+        child: const Drawer(child: SettingsPage()),
+      ),
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1362,6 +1430,7 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
                       Expanded(
                         child: TextField(
                           controller: _newLabelController,
+                          autofocus: true,
                           textCapitalization: TextCapitalization.sentences,
                           decoration: const InputDecoration(
                             hintText: 'New label',

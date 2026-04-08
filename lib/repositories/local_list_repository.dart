@@ -129,6 +129,12 @@ class LocalListRepository implements ListRepository {
   Future<List<UserProfile>> getUsers() async => [];
 
   @override
+  Future<List<String>> getListShares(String listId) async => [];
+
+  @override
+  Future<List<String>> getTemplateShares(String templateId) async => [];
+
+  @override
   Future<void> shareList(String listId, String withUserId) async {}
 
   @override
