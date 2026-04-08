@@ -62,6 +62,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   bool _isCreateMenuOpen = false;
   _Tab _tab = _Tab.home;
   RealtimeChannel? _realtimeChannel;
+  int _loadGeneration = 0;
   static const _labelColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -125,16 +126,6 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _reloadData() async {
-    if (!mounted) return;
-    setState(() {
-      _lists.clear();
-      _templates.clear();
-      _labelStore.clear();
-      _labelColorMap.clear();
-      _sharedListState.clear();
-      _labelCounter = 0;
-      _codes.clear();
-    });
     await _loadData();
   }
 
@@ -146,6 +137,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   Future<void> _loadData() async {
+    final generation = ++_loadGeneration;
     final lists = await listRepository.getLists();
     final templates = await listRepository.getTemplates();
     final labels = await listRepository.getLabels();
@@ -161,20 +153,49 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       }),
     );
     final sharedStates = Map<String, bool>.fromEntries(sharedStateResults);
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
+    final nextLabelStore = <String>[];
+    final nextLabelColorMap = <String, Color>{};
+    var nextLabelCounter = 0;
+
+    void addLabel(String label) {
+      if (!nextLabelStore.contains(label)) {
+        nextLabelColorMap[label] =
+            _labelColors[nextLabelCounter % _labelColors.length];
+        nextLabelStore.add(label);
+        nextLabelCounter++;
+      }
+    }
+
+    for (final list in lists) {
+      for (final label in list.labels) {
+        addLabel(label);
+      }
+    }
+    for (final label in labels) {
+      addLabel(label);
+    }
+
     setState(() {
-      _lists.addAll(lists);
-      for (final list in lists) {
-        for (final label in list.labels) {
-          _addLabel(label);
-        }
-      }
-      _templates.addAll(templates);
-      for (final label in labels) {
-        _addLabel(label);
-      }
-      _sharedListState.addAll(sharedStates);
-      _codes.addAll(codes);
+      _lists
+        ..clear()
+        ..addAll(lists);
+      _templates
+        ..clear()
+        ..addAll(templates);
+      _labelStore
+        ..clear()
+        ..addAll(nextLabelStore);
+      _labelColorMap
+        ..clear()
+        ..addAll(nextLabelColorMap);
+      _sharedListState
+        ..clear()
+        ..addAll(sharedStates);
+      _labelCounter = nextLabelCounter;
+      _codes
+        ..clear()
+        ..addAll(codes);
     });
   }
 

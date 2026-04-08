@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 
 abstract interface class ListRepository {
   Future<List<ShoppingList>> getLists();
+  Future<ShoppingList?> getListById(String id);
   Future<List<ShoppingListTemplate>> getTemplates();
   Future<List<String>> getLabels();
   Future<List<StoredCode>> getCodes();

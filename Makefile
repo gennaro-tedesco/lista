@@ -1,4 +1,4 @@
-.PHONY: run android ios all
+.PHONY: run android ios install_ios install_android all
 
 run:
 	flutter run --dart-define-from-file=config.json
@@ -8,5 +8,11 @@ android:
 
 ios:
 	flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=config.json
+
+install_android:
+	adb install build/app/outputs/flutter-apk/app-release.apk
+
+install_ios:
+	ideviceinstaller -i build/ios/ipa/*.ipa
 
 all: android ios

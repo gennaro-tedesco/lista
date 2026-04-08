@@ -72,6 +72,19 @@ class SupabaseListRepository implements ListRepository {
   }
 
   @override
+  Future<ShoppingList?> getListById(String id) async {
+    final row = await _client
+        .from('shopping_lists')
+        .select('owner_id, *, shopping_list_items(*)')
+        .eq('id', id)
+        .maybeSingle();
+    if (row == null) {
+      return null;
+    }
+    return _listFromRow(row);
+  }
+
+  @override
   Future<void> saveList(ShoppingList list) async {
     final existing = await _client
         .from('shopping_lists')

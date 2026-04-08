@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -61,6 +62,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   String? _previewAnchorItemId;
   bool? _previewPlaceAfter;
   bool _isSharedByMe = false;
+  RealtimeChannel? _realtimeChannel;
+  bool _saveInFlight = false;
+  bool _saveQueued = false;
+  bool _hasPendingLocalSave = false;
+  bool _refreshAfterSave = false;
 
   @override
   void initState() {
@@ -70,10 +76,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         .map((template) => signatureFromTemplateItems(template.items))
         .toSet();
     _loadShareState();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
+    _unsubscribeRealtime();
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
@@ -100,6 +108,132 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
   }
 
+  void _subscribeRealtime() {
+    if (!authStateNotifier.value) {
+      return;
+    }
+    _realtimeChannel = Supabase.instance.client
+        .channel('list-view-${widget.list.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'shopping_lists',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: widget.list.id,
+          ),
+          callback: (_) => _handleRemoteChange(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'shopping_list_items',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'list_id',
+            value: widget.list.id,
+          ),
+          callback: (_) => _handleRemoteChange(),
+        )
+        .subscribe();
+  }
+
+  void _unsubscribeRealtime() {
+    if (_realtimeChannel != null) {
+      unawaited(Supabase.instance.client.removeChannel(_realtimeChannel!));
+      _realtimeChannel = null;
+    }
+  }
+
+  ShoppingList _snapshotList() => ShoppingList(
+    id: widget.list.id,
+    ownerId: widget.list.ownerId,
+    date: widget.list.date,
+    labels: List<String>.from(widget.list.labels),
+    isCompleted: widget.list.isCompleted,
+    totalPrice: widget.list.totalPrice,
+    currencySymbol: widget.list.currencySymbol,
+    items: widget.list.items
+        .map(
+          (item) => ShoppingListItem(
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            isChecked: item.isChecked,
+            category: item.category,
+          ),
+        )
+        .toList(),
+  );
+
+  Future<void> _queueSave() async {
+    _hasPendingLocalSave = true;
+    if (_saveInFlight) {
+      _saveQueued = true;
+      return;
+    }
+    do {
+      _saveInFlight = true;
+      _saveQueued = false;
+      try {
+        await listRepository.saveList(_snapshotList());
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$e')));
+        }
+      } finally {
+        _saveInFlight = false;
+      }
+    } while (_saveQueued);
+    _hasPendingLocalSave = false;
+    if (_refreshAfterSave) {
+      _refreshAfterSave = false;
+      await _refreshFromRemote();
+    }
+  }
+
+  Future<void> _handleRemoteChange() async {
+    if (_hasPendingLocalSave || _saveInFlight) {
+      _refreshAfterSave = true;
+      return;
+    }
+    await _refreshFromRemote();
+  }
+
+  Future<void> _refreshFromRemote() async {
+    final updated = await listRepository.getListById(widget.list.id);
+    if (!mounted) {
+      return;
+    }
+    if (updated == null) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      widget.list.ownerId = updated.ownerId;
+      widget.list.date = updated.date;
+      widget.list.labels = List<String>.from(updated.labels);
+      widget.list.isCompleted = updated.isCompleted;
+      widget.list.totalPrice = updated.totalPrice;
+      widget.list.currencySymbol = updated.currencySymbol;
+      widget.list.items = updated.items
+          .map(
+            (item) => ShoppingListItem(
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              isChecked: item.isChecked,
+              category: item.category,
+            ),
+          )
+          .toList();
+      _totalPriceController.text = widget.list.totalPrice ?? '';
+    });
+  }
+
   void _toggle(String id) {
     final item = widget.list.items.firstWhere((i) => i.id == id);
     setState(() {
@@ -112,16 +246,19 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         _collapsedCategories.add(category);
       }
     });
+    unawaited(_queueSave());
   }
 
   void _deleteItem(String id) {
     setState(() => widget.list.items.removeWhere((i) => i.id == id));
+    unawaited(_queueSave());
   }
 
   void _changeCategory(String id, String? newCategory) {
     setState(() {
       widget.list.items.firstWhere((i) => i.id == id).category = newCategory;
     });
+    unawaited(_queueSave());
   }
 
   void _toggleCollapse(String category) {
@@ -163,6 +300,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
     _itemController.clear();
     _quantityController.clear();
+    unawaited(_queueSave());
   }
 
   void _addFromText() {
@@ -186,6 +324,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
     _itemController.clear();
     _quantityController.clear();
+    unawaited(_queueSave());
   }
 
   Future<void> _showAddItemPopup([String? category]) async {
@@ -384,6 +523,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       ),
     );
     setState(() {});
+    unawaited(_queueSave());
   }
 
   Future<void> _shareList() async {
@@ -423,6 +563,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           category: item.category,
         );
       });
+      unawaited(_queueSave());
     }
   }
 
@@ -533,6 +674,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       final insertIndex = placeAfter ? anchorIndex + 1 : anchorIndex;
       items.insert(insertIndex, movingItem);
     });
+    unawaited(_queueSave());
   }
 
   void _updateDropPosition(
@@ -742,8 +884,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             Center(
                               child: DateSelectorField(
                                 selectedDate: widget.list.date,
-                                onDateSelected: (date) =>
-                                    setState(() => widget.list.date = date),
+                                onDateSelected: (date) {
+                                  setState(() => widget.list.date = date);
+                                  unawaited(_queueSave());
+                                },
                               ),
                             ),
                             SizedBox(

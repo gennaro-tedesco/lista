@@ -60,6 +60,12 @@ class LocalListRepository implements ListRepository {
   Future<List<ShoppingList>> getLists() async => _lists;
 
   @override
+  Future<ShoppingList?> getListById(String id) async {
+    final index = _lists.indexWhere((e) => e.id == id);
+    return index == -1 ? null : _lists[index];
+  }
+
+  @override
   Future<List<ShoppingListTemplate>> getTemplates() async => _templates;
 
   @override
