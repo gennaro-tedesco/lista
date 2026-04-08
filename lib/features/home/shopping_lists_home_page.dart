@@ -209,7 +209,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   void _upsertList(ShoppingList list) {
     final index = _lists.indexWhere((item) => item.id == list.id);
     if (index == -1) {
-      _lists.add(list);
+      _lists.insert(0, list);
     } else {
       _lists[index] = list;
     }
@@ -217,11 +217,17 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   List<ShoppingList> get _activeLists =>
       (_lists.where((list) => !list.isCompleted).toList()
-        ..sort((a, b) => b.date.compareTo(a.date)));
+        ..sort((a, b) {
+          final d = b.date.compareTo(a.date);
+          return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
+        }));
 
   List<ShoppingList> get _completedLists =>
       (_lists.where((list) => list.isCompleted).toList()
-        ..sort((a, b) => b.date.compareTo(a.date)));
+        ..sort((a, b) {
+          final d = b.date.compareTo(a.date);
+          return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
+        }));
 
   Future<void> _openCreateList() async {
     setState(() => _isCreateMenuOpen = false);

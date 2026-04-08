@@ -4,6 +4,7 @@ class ShoppingList {
   final String id;
   String? ownerId;
   DateTime date;
+  final DateTime createdAt;
   List<String> labels;
   bool isCompleted;
   String? totalPrice;
@@ -14,12 +15,14 @@ class ShoppingList {
     required this.id,
     this.ownerId,
     required this.date,
+    DateTime? createdAt,
     List<String>? labels,
     this.isCompleted = false,
     this.totalPrice,
     this.currencySymbol = '€',
     List<ShoppingListItem>? items,
-  }) : labels = labels ?? [],
+  }) : createdAt = createdAt ?? DateTime.now(),
+       labels = labels ?? [],
        items = items ?? [];
 
   Map<String, dynamic> toJson() => {

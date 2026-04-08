@@ -150,6 +150,7 @@ class AddItemFields extends StatelessWidget {
   final TextEditingController itemController;
   final TextEditingController quantityController;
   final FocusNode? itemFocusNode;
+  final bool autofocus;
   final ValueChanged<String> onChanged;
   final VoidCallback onSubmit;
   final Widget? suggestions;
@@ -159,6 +160,7 @@ class AddItemFields extends StatelessWidget {
     required this.itemController,
     required this.quantityController,
     this.itemFocusNode,
+    this.autofocus = false,
     required this.onChanged,
     required this.onSubmit,
     this.suggestions,
@@ -187,6 +189,7 @@ class AddItemFields extends StatelessWidget {
                     child: TextField(
                       controller: itemController,
                       focusNode: itemFocusNode,
+                      autofocus: autofocus,
                       onChanged: onChanged,
                       onSubmitted: (_) => onSubmit(),
                       textCapitalization: TextCapitalization.sentences,

@@ -856,6 +856,11 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     final theme = Theme.of(context);
     final items = widget.list.items;
     final checked = items.where((i) => i.isChecked).length;
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final isOwner =
+        widget.list.ownerId != null &&
+        currentUserId != null &&
+        widget.list.ownerId == currentUserId;
 
     final fillColor =
         theme.inputDecorationTheme.fillColor ??
@@ -987,7 +992,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                               onTap: _canSaveTemplate ? _saveAsTemplate : null,
                             ),
                           ),
-                          if (authStateNotifier.value)
+                          if (authStateNotifier.value && isOwner)
                             Expanded(
                               child: ActionTabButton(
                                 icon: _isSharedByMe

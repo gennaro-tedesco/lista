@@ -206,11 +206,6 @@ class _CreateListPageState extends State<CreateListPage> {
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black38,
       pageBuilder: (dialogContext, _, _) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _itemFocusNode.requestFocus();
-          }
-        });
         return MediaQuery.removeViewInsets(
           context: dialogContext,
           removeLeft: true,
@@ -232,6 +227,7 @@ class _CreateListPageState extends State<CreateListPage> {
                         itemController: _itemController,
                         quantityController: _quantityController,
                         itemFocusNode: _itemFocusNode,
+                        autofocus: true,
                         onChanged: _onItemTextChanged,
                         onSubmit: () {
                           if (_itemController.text.trim().isEmpty) return;

@@ -34,10 +34,14 @@ class SupabaseListRepository implements ListRepository {
           ),
         )
         .toList();
+    final createdAtRaw = row['created_at'];
     return ShoppingList(
       id: row['id'] as String,
       ownerId: row['owner_id'] as String?,
       date: DateTime.parse(row['date'] as String),
+      createdAt: createdAtRaw != null
+          ? DateTime.parse(createdAtRaw as String)
+          : null,
       labels: (row['labels'] as List<dynamic>?)?.cast<String>() ?? [],
       isCompleted: row['is_completed'] as bool? ?? false,
       totalPrice: row['total_price'] as String?,
@@ -67,7 +71,9 @@ class SupabaseListRepository implements ListRepository {
   Future<List<ShoppingList>> getLists() async {
     final data = await _client
         .from('shopping_lists')
-        .select('owner_id, *, shopping_list_items(*)');
+        .select('owner_id, *, shopping_list_items(*)')
+        .order('date', ascending: false)
+        .order('created_at', ascending: false);
     return data.map(_listFromRow).toList();
   }
 
