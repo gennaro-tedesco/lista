@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'account_page.dart';
 import 'appearance_settings_page.dart';
 
 const _appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
@@ -39,7 +40,14 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ),
                 const Divider(height: 1),
-                const ListTile(title: Text('Account'), enabled: false),
+                ListTile(
+                  title: const Text('Account'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AccountPage()),
+                  ),
+                ),
               ],
             ),
           ),

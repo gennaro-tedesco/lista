@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/shopping_list.dart';
 import '../models/shopping_list_template.dart';
 import '../models/stored_code.dart';
+import '../models/user_profile.dart';
 import 'list_repository.dart';
 
 class LocalListRepository implements ListRepository {
@@ -123,6 +124,21 @@ class LocalListRepository implements ListRepository {
     _codes.removeWhere((e) => e.id == id);
     await _persist();
   }
+
+  @override
+  Future<List<UserProfile>> getUsers() async => [];
+
+  @override
+  Future<void> shareList(String listId, String withUserId) async {}
+
+  @override
+  Future<void> unshareList(String listId, String withUserId) async {}
+
+  @override
+  Future<void> shareTemplate(String templateId, String withUserId) async {}
+
+  @override
+  Future<void> unshareTemplate(String templateId, String withUserId) async {}
 }
 
 Future<LocalListRepository> createLocalListRepository() async {

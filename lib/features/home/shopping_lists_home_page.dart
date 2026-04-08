@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
@@ -57,6 +58,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final ScrollController _historyScrollController = ScrollController();
   bool _isCreateMenuOpen = false;
   _Tab _tab = _Tab.home;
+  RealtimeChannel? _realtimeChannel;
   static const _labelColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -71,14 +73,65 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   @override
   void initState() {
     super.initState();
+    if (authStateNotifier.value) _subscribeRealtime();
     _loadData();
+    authStateNotifier.addListener(_onAuthChanged);
   }
 
   @override
   void dispose() {
+    authStateNotifier.removeListener(_onAuthChanged);
+    _unsubscribeRealtime();
     _homeScrollController.dispose();
     _historyScrollController.dispose();
     super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (authStateNotifier.value) {
+      _subscribeRealtime();
+    } else {
+      _unsubscribeRealtime();
+    }
+    _reloadData();
+  }
+
+  void _subscribeRealtime() {
+    _realtimeChannel = Supabase.instance.client
+        .channel('home')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'shopping_lists',
+          callback: (_) => _reloadData(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'shopping_list_items',
+          callback: (_) => _reloadData(),
+        )
+        .subscribe();
+  }
+
+  void _unsubscribeRealtime() {
+    if (_realtimeChannel != null) {
+      unawaited(Supabase.instance.client.removeChannel(_realtimeChannel!));
+      _realtimeChannel = null;
+    }
+  }
+
+  Future<void> _reloadData() async {
+    if (!mounted) return;
+    setState(() {
+      _lists.clear();
+      _templates.clear();
+      _labelStore.clear();
+      _labelColorMap.clear();
+      _labelCounter = 0;
+      _codes.clear();
+    });
+    await _loadData();
   }
 
   void _selectTab(_Tab tab) {
@@ -101,6 +154,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         _addLabel(label);
       }
       _codes.addAll(codes);
+    });
+  }
+
+  void _run(Future<void> future) {
+    future.catchError((Object e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     });
   }
 
@@ -128,7 +188,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         _tab = _Tab.home;
         _lists.add(result);
       });
-      unawaited(listRepository.saveList(result));
+      _run(listRepository.saveList(result));
     }
   }
 
@@ -160,7 +220,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         _tab = _Tab.home;
         _lists.add(result);
       });
-      unawaited(listRepository.saveList(result));
+      _run(listRepository.saveList(result));
     }
   }
 
@@ -179,7 +239,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           .toList(),
     );
     setState(() => _templates.add(template));
-    unawaited(listRepository.saveTemplate(template));
+    _run(listRepository.saveTemplate(template));
   }
 
   void _addLabel(String label) {
@@ -338,7 +398,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         ),
       ),
     );
-    unawaited(listRepository.saveList(list));
+    _run(listRepository.saveList(list));
     setState(() {});
   }
 
@@ -378,7 +438,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         setDialogState(() {
                           _templates.remove(template);
                         });
-                        unawaited(listRepository.deleteTemplate(template.id));
+                        _run(listRepository.deleteTemplate(template.id));
                         if (_templates.isEmpty && mounted) {
                           Navigator.pop(context);
                         }
@@ -432,7 +492,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                               );
                               if (index != -1) _templates[index] = updated;
                             });
-                            unawaited(listRepository.saveTemplate(updated));
+                            _run(listRepository.saveTemplate(updated));
                           }
                         },
                         onTap: () => Navigator.pop(context, template),
@@ -485,14 +545,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {
       _lists.remove(list);
     });
-    unawaited(listRepository.deleteList(list.id));
+    _run(listRepository.deleteList(list.id));
   }
 
   void _toggleCompleted(ShoppingList list) {
     setState(() {
       list.isCompleted = !list.isCompleted;
     });
-    unawaited(listRepository.saveList(list));
+    _run(listRepository.saveList(list));
   }
 
   Future<void> _editLabels(ShoppingList list) async {
@@ -515,7 +575,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         },
         onLabelCreated: (label) {
           _addLabel(label);
-          unawaited(listRepository.saveLabels(_labelStore));
+          _run(listRepository.saveLabels(_labelStore));
         },
         onLabelDeleted: (label) {
           setState(() {
@@ -526,7 +586,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             }
           });
           labelDeleted = true;
-          unawaited(listRepository.saveLabels(_labelStore));
+          _run(listRepository.saveLabels(_labelStore));
         },
       ),
     );
@@ -534,11 +594,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       setState(() {
         list.labels = result;
       });
-      unawaited(listRepository.saveList(list));
-      unawaited(listRepository.saveLabels(_labelStore));
+      _run(listRepository.saveList(list));
+      _run(listRepository.saveLabels(_labelStore));
       if (labelDeleted) {
         for (final item in _lists) {
-          unawaited(listRepository.saveList(item));
+          _run(listRepository.saveList(item));
         }
       }
     }
@@ -637,7 +697,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       );
       if (!mounted) return;
       setState(() => _codes.add(code));
-      unawaited(listRepository.saveCode(code));
+      _run(listRepository.saveCode(code));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -686,7 +746,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     });
     if (renamed == null || renamed.isEmpty || !mounted) return;
     setState(() => code.name = renamed);
-    unawaited(listRepository.saveCode(code));
+    _run(listRepository.saveCode(code));
   }
 
   Future<void> _confirmDeleteCode(StoredCode code) async {
@@ -708,7 +768,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _codes.remove(code));
-    unawaited(listRepository.deleteCode(code.id));
+    _run(listRepository.deleteCode(code.id));
     try {
       final file = File(code.imagePath);
       if (await file.exists()) await file.delete();
