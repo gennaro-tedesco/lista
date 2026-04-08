@@ -35,6 +35,7 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Garlic', category: 'Vegetable'),
   FoodSuggestion(name: 'Gin', category: 'Drinks'),
   FoodSuggestion(name: 'Grapes', category: 'Fruit'),
+  FoodSuggestion(name: 'Hackfleisch', category: 'Meat'),
   FoodSuggestion(name: 'Honey', category: 'Pantry'),
   FoodSuggestion(name: 'Jam', category: 'Pantry'),
   FoodSuggestion(name: 'Juice', category: 'Drinks'),
@@ -81,5 +82,6 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Watermelon', category: 'Fruit'),
   FoodSuggestion(name: 'Wine', category: 'Drinks'),
   FoodSuggestion(name: 'Yogurt', category: 'Dairy'),
+  FoodSuggestion(name: 'Yoghurt', category: 'Dairy'),
   FoodSuggestion(name: 'Zucchini', category: 'Vegetable'),
 ];

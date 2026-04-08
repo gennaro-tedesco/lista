@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:uuid/uuid.dart';
@@ -44,11 +45,12 @@ class CreateListPage extends StatefulWidget {
   State<CreateListPage> createState() => _CreateListPageState();
 }
 
-class _CreateListPageState extends State<CreateListPage> {
+class _CreateListPageState extends State<CreateListPage>
+    with SingleTickerProviderStateMixin {
+  static final _random = Random();
   DateTime _selectedDate = DateTime.now();
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
-  final FocusNode _itemFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final List<ShoppingListItem> _items = [];
   List<FoodSuggestion> _suggestions = [];
@@ -59,10 +61,30 @@ class _CreateListPageState extends State<CreateListPage> {
   bool? _previewPlaceAfter;
   String? _pendingCategory;
   ShoppingList? _sharedDraftList;
+  late final AnimationController _fishController;
+  late Offset _fishPosition;
+  late Offset _penguinPosition;
+  late bool _fishStartsFirst;
 
   @override
   void initState() {
     super.initState();
+    _randomizeEmptyState();
+    _fishController = AnimationController(
+      duration: const Duration(milliseconds: 5600),
+      vsync: this,
+    );
+    _fishController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) {
+          setState(() {
+            _randomizeEmptyState();
+          });
+        }
+        _fishController.forward(from: 0);
+      }
+    });
+    _fishController.forward();
     _templateSignatures = widget.existingTemplates
         .map((template) => signatureFromTemplateItems(template.items))
         .toSet();
@@ -85,11 +107,47 @@ class _CreateListPageState extends State<CreateListPage> {
 
   @override
   void dispose() {
+    _fishController.dispose();
     _itemController.dispose();
     _quantityController.dispose();
-    _itemFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _randomizeEmptyState() {
+    _fishStartsFirst = _random.nextBool();
+    _fishPosition = _randomUpperPosition();
+    _penguinPosition = _randomLowerPosition();
+  }
+
+  Offset _randomUpperPosition() {
+    final x = 0.08 + (_random.nextDouble() * 0.84);
+    final y = 0.08 + (_random.nextDouble() * 0.22);
+    return Offset(x, y);
+  }
+
+  Offset _randomLowerPosition() {
+    final x = 0.08 + (_random.nextDouble() * 0.84);
+    final y = 0.62 + (_random.nextDouble() * 0.22);
+    return Offset(x, y);
+  }
+
+  double _windowOpacity(
+    double progress, {
+    required double start,
+    required double end,
+  }) {
+    if (progress <= start || progress >= end) {
+      return 0;
+    }
+    final normalized = (progress - start) / (end - start);
+    if (normalized < 0.2) {
+      return normalized / 0.2;
+    }
+    if (normalized > 0.8) {
+      return (1 - normalized) / 0.2;
+    }
+    return 1;
   }
 
   bool get _canSaveTemplate =>
@@ -119,6 +177,8 @@ class _CreateListPageState extends State<CreateListPage> {
       if (trimmedName.isEmpty) return;
       setState(() {
         final idx = _items.indexWhere((i) => i.id == id);
+        final nameChanged =
+            trimmedName.toLowerCase() != item.name.toLowerCase();
         _items[idx] = ShoppingListItem(
           id: item.id,
           name: trimmedName,
@@ -126,7 +186,9 @@ class _CreateListPageState extends State<CreateListPage> {
               ? null
               : result.quantity.trim(),
           isChecked: item.isChecked,
-          category: item.category,
+          category: nameChanged
+              ? SuggestionService.categoryFor(trimmedName) ?? item.category
+              : item.category,
         );
       });
     }
@@ -226,7 +288,6 @@ class _CreateListPageState extends State<CreateListPage> {
                       child: AddItemFields(
                         itemController: _itemController,
                         quantityController: _quantityController,
-                        itemFocusNode: _itemFocusNode,
                         autofocus: true,
                         onChanged: _onItemTextChanged,
                         onSubmit: () {
@@ -651,6 +712,69 @@ class _CreateListPageState extends State<CreateListPage> {
                               ),
                             ),
                           const SizedBox(height: 8),
+                        ] else ...[
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            height: MediaQuery.sizeOf(context).height * 0.5,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final width = constraints.maxWidth - 48;
+                                final height = constraints.maxHeight - 48;
+                                return AnimatedBuilder(
+                                  animation: _fishController,
+                                  builder: (context, child) {
+                                    final progress = _fishController.value;
+                                    final leadOpacity = _windowOpacity(
+                                      progress,
+                                      start: 0.0,
+                                      end: 0.62,
+                                    );
+                                    final followOpacity = _windowOpacity(
+                                      progress,
+                                      start: 0.18,
+                                      end: 0.8,
+                                    );
+                                    return Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 24 + (_fishPosition.dx * width),
+                                          top: 24 + (_fishPosition.dy * height),
+                                          child: Opacity(
+                                            opacity: _fishStartsFirst
+                                                ? leadOpacity
+                                                : followOpacity,
+                                            child: Text(
+                                              '🐟',
+                                              style:
+                                                  theme.textTheme.displayMedium,
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          left:
+                                              24 +
+                                              (_penguinPosition.dx * width),
+                                          top:
+                                              24 +
+                                              (_penguinPosition.dy * height),
+                                          child: Opacity(
+                                            opacity: _fishStartsFirst
+                                                ? followOpacity
+                                                : leadOpacity,
+                                            child: Text(
+                                              '🐧',
+                                              style:
+                                                  theme.textTheme.displayMedium,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -714,7 +838,9 @@ class _CreateListPageState extends State<CreateListPage> {
                                       ? _shareCurrentList
                                       : null,
                                 ),
-                              ),
+                              )
+                            else
+                              const Expanded(child: SizedBox.shrink()),
                           ],
                         ),
                       ),

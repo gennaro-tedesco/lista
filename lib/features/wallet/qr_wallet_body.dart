@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../models/stored_code.dart';
 
+const _tabStripHeight = 56.0;
+
 class QrWalletBody extends StatelessWidget {
   final List<StoredCode> codes;
   final void Function(StoredCode) onView;
@@ -21,26 +23,35 @@ class QrWalletBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (codes.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.wallet,
-              size: 64,
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No codes yet',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+      return Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.wallet,
+                    size: 64,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No codes yet',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Tap + to add one', style: theme.textTheme.bodySmall),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text('Tap + to add one', style: theme.textTheme.bodySmall),
-          ],
-        ),
+          ),
+          const SizedBox(height: _tabStripHeight),
+        ],
       );
     }
     return GridView.builder(

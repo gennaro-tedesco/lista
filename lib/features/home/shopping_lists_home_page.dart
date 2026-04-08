@@ -216,18 +216,16 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   List<ShoppingList> get _activeLists =>
-      (_lists.where((list) => !list.isCompleted).toList()
-        ..sort((a, b) {
-          final d = b.date.compareTo(a.date);
-          return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
-        }));
+      (_lists.where((list) => !list.isCompleted).toList()..sort((a, b) {
+        final d = b.date.compareTo(a.date);
+        return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
+      }));
 
   List<ShoppingList> get _completedLists =>
-      (_lists.where((list) => list.isCompleted).toList()
-        ..sort((a, b) {
-          final d = b.date.compareTo(a.date);
-          return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
-        }));
+      (_lists.where((list) => list.isCompleted).toList()..sort((a, b) {
+        final d = b.date.compareTo(a.date);
+        return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
+      }));
 
   Future<void> _openCreateList() async {
     setState(() => _isCreateMenuOpen = false);
@@ -1030,120 +1028,148 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 onDelete: _confirmDeleteCode,
               )
             : _lists.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.shopping_basket_outlined,
-                      size: 64,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.35,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No lists yet',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Tap + to create one',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              )
-            : _tab == _Tab.history
-            ? Scrollbar(
-                controller: _historyScrollController,
-                thumbVisibility: true,
-                child: ListView(
-                  controller: _historyScrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                  children: [
-                    if (_completedLists.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 80),
-                        child: Center(
-                          child: Text(
-                            'No completed lists',
+            ? Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.shopping_basket_outlined,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.35),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No lists yet',
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                      )
-                    else
-                      for (final list in _completedLists)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Dismissible(
-                            key: ValueKey('completed-${list.id}'),
-                            direction:
-                                list.ownerId != null &&
-                                    Supabase
-                                            .instance
-                                            .client
-                                            .auth
-                                            .currentUser
-                                            ?.id !=
-                                        null &&
-                                    list.ownerId !=
-                                        Supabase
-                                            .instance
-                                            .client
-                                            .auth
-                                            .currentUser
-                                            ?.id
-                                ? DismissDirection.startToEnd
-                                : DismissDirection.horizontal,
-                            background: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondary,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Icon(
-                                Icons.undo,
-                                color: theme.colorScheme.onSecondary,
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap + to create one',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: _tabStripHeight),
+                ],
+              )
+            : _tab == _Tab.history
+            ? _completedLists.isEmpty
+                  ? Column(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              'No completed lists',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            secondaryBackground: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.error,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Icon(
-                                Icons.delete,
-                                color: theme.colorScheme.onError,
-                              ),
-                            ),
-                            confirmDismiss: (direction) =>
-                                _handleListSwipe(direction, list),
-                            child: _buildListCard(context, list),
                           ),
                         ),
-                  ],
-                ),
-              )
+                        const SizedBox(height: _tabStripHeight),
+                      ],
+                    )
+                  : Scrollbar(
+                      controller: _historyScrollController,
+                      thumbVisibility: true,
+                      child: ListView(
+                        controller: _historyScrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                        children: [
+                          for (final list in _completedLists)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Dismissible(
+                                key: ValueKey('completed-${list.id}'),
+                                direction:
+                                    list.ownerId != null &&
+                                        Supabase
+                                                .instance
+                                                .client
+                                                .auth
+                                                .currentUser
+                                                ?.id !=
+                                            null &&
+                                        list.ownerId !=
+                                            Supabase
+                                                .instance
+                                                .client
+                                                .auth
+                                                .currentUser
+                                                ?.id
+                                    ? DismissDirection.startToEnd
+                                    : DismissDirection.horizontal,
+                                background: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondary,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Icon(
+                                    Icons.undo,
+                                    color: theme.colorScheme.onSecondary,
+                                  ),
+                                ),
+                                secondaryBackground: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.error,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Icon(
+                                    Icons.delete,
+                                    color: theme.colorScheme.onError,
+                                  ),
+                                ),
+                                confirmDismiss: (direction) =>
+                                    _handleListSwipe(direction, list),
+                                child: _buildListCard(context, list),
+                              ),
+                            ),
+                        ],
+                      ),
+                    )
             : _activeLists.isEmpty
-            ? Center(
-                child: Text(
-                  'No active lists',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+            ? Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 64,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.35),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No active lists',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: _tabStripHeight),
+                ],
               )
             : Scrollbar(
                 controller: _homeScrollController,

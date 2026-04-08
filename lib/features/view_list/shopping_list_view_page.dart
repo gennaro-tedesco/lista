@@ -553,6 +553,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       if (trimmedName.isEmpty) return;
       setState(() {
         final idx = widget.list.items.indexWhere((i) => i.id == id);
+        final nameChanged =
+            trimmedName.toLowerCase() != item.name.toLowerCase();
         widget.list.items[idx] = ShoppingListItem(
           id: item.id,
           name: trimmedName,
@@ -560,7 +562,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               ? null
               : result.quantity.trim(),
           isChecked: item.isChecked,
-          category: item.category,
+          category: nameChanged
+              ? SuggestionService.categoryFor(trimmedName) ?? item.category
+              : item.category,
         );
       });
       unawaited(_queueSave());

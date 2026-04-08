@@ -33,9 +33,9 @@ class SuggestionService {
   static String? categoryFor(String value) {
     final query = value.toLowerCase().trim();
     if (query.isEmpty) return null;
-    if (query.contains('juice') || query.contains('water')) return 'Drinks';
 
     final normalizedQuery = _normalize(query);
+
     for (final item in foodSuggestions) {
       final name = item.name.toLowerCase();
       if (name == query || _normalize(name) == normalizedQuery) {
@@ -43,7 +43,27 @@ class SuggestionService {
       }
     }
 
-    return null;
+    FoodSuggestion? best;
+    for (final item in foodSuggestions) {
+      final name = item.name.toLowerCase();
+      final normalizedName = _normalize(name);
+      if (_containsWord(query, name) ||
+          _containsWord(normalizedQuery, normalizedName)) {
+        if (best == null || name.length > best.name.toLowerCase().length) {
+          best = item;
+        }
+      }
+    }
+    return best?.category;
+  }
+
+  static bool _containsWord(String text, String word) {
+    final idx = text.indexOf(word);
+    if (idx == -1) return false;
+    final before = idx == 0 || text[idx - 1] == ' ';
+    final after =
+        idx + word.length == text.length || text[idx + word.length] == ' ';
+    return before && after;
   }
 
   static String _normalize(String value) {
