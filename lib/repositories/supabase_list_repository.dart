@@ -36,6 +36,7 @@ class SupabaseListRepository implements ListRepository {
         .toList();
     return ShoppingList(
       id: row['id'] as String,
+      ownerId: row['owner_id'] as String?,
       date: DateTime.parse(row['date'] as String),
       labels: (row['labels'] as List<dynamic>?)?.cast<String>() ?? [],
       isCompleted: row['is_completed'] as bool? ?? false,
@@ -66,21 +67,31 @@ class SupabaseListRepository implements ListRepository {
   Future<List<ShoppingList>> getLists() async {
     final data = await _client
         .from('shopping_lists')
-        .select('*, shopping_list_items(*)');
+        .select('owner_id, *, shopping_list_items(*)');
     return data.map(_listFromRow).toList();
   }
 
   @override
   Future<void> saveList(ShoppingList list) async {
-    await _client.from('shopping_lists').upsert({
+    final existing = await _client
+        .from('shopping_lists')
+        .select('id')
+        .eq('id', list.id)
+        .maybeSingle();
+    final row = {
       'id': list.id,
-      'owner_id': _client.auth.currentUser!.id,
       'date': list.date.toIso8601String(),
       'is_completed': list.isCompleted,
       'total_price': list.totalPrice,
       'currency_symbol': list.currencySymbol,
       'labels': list.labels,
-    });
+    };
+    if (existing == null) {
+      row['owner_id'] = _client.auth.currentUser!.id;
+      await _client.from('shopping_lists').insert(row);
+    } else {
+      await _client.from('shopping_lists').update(row).eq('id', list.id);
+    }
     await _client.from('shopping_list_items').delete().eq('list_id', list.id);
     if (list.items.isNotEmpty) {
       await _client
@@ -103,8 +114,13 @@ class SupabaseListRepository implements ListRepository {
   }
 
   @override
-  Future<void> deleteList(String id) async {
-    await _client.from('shopping_lists').delete().eq('id', id);
+  Future<void> deleteList(ShoppingList list) async {
+    final userId = _client.auth.currentUser!.id;
+    if (list.ownerId == userId) {
+      await _client.from('shopping_lists').delete().eq('id', list.id);
+      return;
+    }
+    await unshareList(list.id, userId);
   }
 
   @override
@@ -213,24 +229,35 @@ class SupabaseListRepository implements ListRepository {
   Future<List<UserProfile>> getUsers() async {
     final data = await _client
         .from('profiles')
-        .select('id, email')
+        .select('id, name')
         .neq('id', _client.auth.currentUser!.id);
     return data
         .map(
-          (row) => UserProfile(
-            id: row['id'] as String,
-            email: row['email'] as String,
-          ),
+          (row) =>
+              UserProfile(id: row['id'] as String, name: row['name'] as String),
         )
         .toList();
   }
 
   @override
+  Future<bool> listHasShares(String listId) async {
+    final result = await _client.rpc(
+      'list_has_shares',
+      params: {'target_list_id': listId},
+    );
+    return result == true;
+  }
+
+  @override
   Future<void> shareList(String listId, String withUserId) async {
-    await _client.from('list_shares').upsert({
-      'list_id': listId,
-      'shared_with_user_id': withUserId,
-    });
+    try {
+      await _client.from('list_shares').insert({
+        'list_id': listId,
+        'shared_with_user_id': withUserId,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code != '23505') rethrow;
+    }
   }
 
   @override
@@ -244,10 +271,14 @@ class SupabaseListRepository implements ListRepository {
 
   @override
   Future<void> shareTemplate(String templateId, String withUserId) async {
-    await _client.from('template_shares').upsert({
-      'template_id': templateId,
-      'shared_with_user_id': withUserId,
-    });
+    try {
+      await _client.from('template_shares').insert({
+        'template_id': templateId,
+        'shared_with_user_id': withUserId,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code != '23505') rethrow;
+    }
   }
 
   @override

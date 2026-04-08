@@ -1,6 +1,6 @@
 class UserProfile {
   final String id;
-  final String email;
+  final String name;
 
-  const UserProfile({required this.id, required this.email});
+  const UserProfile({required this.id, required this.name});
 }

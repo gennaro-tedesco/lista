@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/themes.dart';
 import 'features/home/shopping_lists_home_page.dart';
@@ -34,17 +35,29 @@ class ListaApp extends StatelessWidget {
         uiFontScaleNotifier,
         appFontNotifier,
       ]),
-      builder: (context, child) => MaterialApp(
-        title: 'Lista',
-        theme: themeNotifier.value.themeData,
-        darkTheme: appFontNotifier.value.apply(
-          AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),
-        ),
-        themeMode: themeNotifier.value == AppThemeOption.none
-            ? ThemeMode.system
-            : ThemeMode.light,
-        home: const ShoppingListsHomePage(),
-      ),
+      builder: (context, child) {
+        final theme = themeNotifier.value.themeData;
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            systemNavigationBarColor: theme.scaffoldBackgroundColor,
+            systemNavigationBarIconBrightness:
+                theme.brightness == Brightness.dark
+                ? Brightness.light
+                : Brightness.dark,
+          ),
+        );
+        return MaterialApp(
+          title: 'Lista',
+          theme: theme,
+          darkTheme: appFontNotifier.value.apply(
+            AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),
+          ),
+          themeMode: themeNotifier.value == AppThemeOption.none
+              ? ThemeMode.system
+              : ThemeMode.light,
+          home: const ShoppingListsHomePage(),
+        );
+      },
     );
   }
 }

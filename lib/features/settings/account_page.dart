@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../repositories/list_repository.dart';
 import '../../repositories/supabase_list_repository.dart';
@@ -68,7 +69,18 @@ class _AccountPageState extends State<AccountPage> {
     final user = Supabase.instance.client.auth.currentUser;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(
+        leading: IconButton.filled(
+          onPressed: () => Navigator.pop(context),
+          style: IconButton.styleFrom(
+            backgroundColor: fillColor,
+            foregroundColor: theme.colorScheme.onSurface,
+          ),
+          tooltip: 'Back',
+          icon: const Icon(LucideIcons.chevron_left, size: 22),
+        ),
+        title: const Text('Account'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: user == null

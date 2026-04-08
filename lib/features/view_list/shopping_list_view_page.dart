@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
@@ -59,6 +60,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final Map<String, bool> _dropAfterByItemId = {};
   String? _previewAnchorItemId;
   bool? _previewPlaceAfter;
+  bool _isSharedByMe = false;
 
   @override
   void initState() {
@@ -67,6 +69,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _templateSignatures = widget.existingTemplates
         .map((template) => signatureFromTemplateItems(template.items))
         .toSet();
+    _loadShareState();
   }
 
   @override
@@ -82,6 +85,20 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool get _canSaveTemplate =>
       widget.list.items.isNotEmpty &&
       !_templateSignatures.contains(signatureFromItems(widget.list.items));
+
+  Future<void> _loadShareState() async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (widget.list.ownerId == null ||
+        currentUserId == null ||
+        widget.list.ownerId != currentUserId) {
+      return;
+    }
+    final isShared = await listRepository.listHasShares(widget.list.id);
+    if (!mounted) return;
+    setState(() {
+      _isSharedByMe = isShared;
+    });
+  }
 
   void _toggle(String id) {
     final item = widget.list.items.firstWhere((i) => i.id == id);
@@ -379,6 +396,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         unshare: (userId) => listRepository.unshareList(widget.list.id, userId),
       ),
     );
+    await _loadShareState();
   }
 
   Future<void> _editItem(String id) async {
@@ -715,7 +733,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   child: ListView(
                     controller: _scrollController,
                     children: [
-                      const SizedBox(height: 56),
+                      const SizedBox(height: 41),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                         child: Column(
@@ -785,7 +803,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -801,23 +819,21 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                   ],
                 ),
               ),
-              SafeArea(
-                top: false,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                      child: IconButton.filled(
-                        onPressed: () => Navigator.pop(context),
-                        style: IconButton.styleFrom(
-                          backgroundColor: fillColor,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Back',
-                        icon: const Icon(LucideIcons.chevron_left, size: 22),
+                    IconButton.filled(
+                      onPressed: () => Navigator.pop(context),
+                      style: IconButton.styleFrom(
+                        backgroundColor: fillColor,
+                        foregroundColor: theme.colorScheme.onSurface,
                       ),
+                      tooltip: 'Back',
+                      icon: const Icon(LucideIcons.chevron_left, size: 22),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Row(
                         children: [
@@ -830,8 +846,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                           if (authStateNotifier.value)
                             Expanded(
                               child: ActionTabButton(
-                                icon: Icons.person_add_outlined,
-                                onTap: _shareList,
+                                icon: _isSharedByMe
+                                    ? Icons.link_outlined
+                                    : Icons.person_add_outlined,
+                                onTap: _isSharedByMe ? null : _shareList,
                               ),
                             ),
                           Expanded(

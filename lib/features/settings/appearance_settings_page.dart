@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../app/themes.dart';
 
@@ -16,7 +17,20 @@ class AppearanceSettingsPage extends StatelessWidget {
       builder: (context, child) {
         final theme = Theme.of(context);
         return Scaffold(
-          appBar: AppBar(title: const Text('Appearance')),
+          appBar: AppBar(
+            leading: IconButton.filled(
+              onPressed: () => Navigator.pop(context),
+              style: IconButton.styleFrom(
+                backgroundColor:
+                    theme.inputDecorationTheme.fillColor ??
+                    theme.colorScheme.surfaceContainerHighest,
+                foregroundColor: theme.colorScheme.onSurface,
+              ),
+              tooltip: 'Back',
+              icon: const Icon(LucideIcons.chevron_left, size: 22),
+            ),
+            title: const Text('Appearance'),
+          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [

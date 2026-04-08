@@ -53,6 +53,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
   final Map<String, Color> _labelColorMap = {};
+  final Map<String, bool> _sharedListState = {};
   int _labelCounter = 0;
   final List<StoredCode> _codes = [];
   final ScrollController _homeScrollController = ScrollController();
@@ -130,6 +131,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       _templates.clear();
       _labelStore.clear();
       _labelColorMap.clear();
+      _sharedListState.clear();
       _labelCounter = 0;
       _codes.clear();
     });
@@ -148,13 +150,30 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final templates = await listRepository.getTemplates();
     final labels = await listRepository.getLabels();
     final codes = await listRepository.getCodes();
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final ownedLists = lists
+        .where((list) => list.ownerId == currentUserId)
+        .toList();
+    final sharedStateResults = await Future.wait(
+      ownedLists.map((list) async {
+        final hasShares = await listRepository.listHasShares(list.id);
+        return MapEntry(list.id, hasShares);
+      }),
+    );
+    final sharedStates = Map<String, bool>.fromEntries(sharedStateResults);
     if (!mounted) return;
     setState(() {
       _lists.addAll(lists);
+      for (final list in lists) {
+        for (final label in list.labels) {
+          _addLabel(label);
+        }
+      }
       _templates.addAll(templates);
       for (final label in labels) {
         _addLabel(label);
       }
+      _sharedListState.addAll(sharedStates);
       _codes.addAll(codes);
     });
   }
@@ -195,6 +214,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
     );
     if (result != null) {
+      result.ownerId ??= Supabase.instance.client.auth.currentUser?.id;
       setState(() {
         _tab = _Tab.home;
         _upsertList(result);
@@ -227,6 +247,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
     );
     if (result != null) {
+      result.ownerId ??= Supabase.instance.client.auth.currentUser?.id;
       setState(() {
         _tab = _Tab.home;
         _upsertList(result);
@@ -265,6 +286,13 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   Widget _buildListCard(BuildContext context, ShoppingList list) {
     final theme = Theme.of(context);
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final isSharedWithMe =
+        list.ownerId != null &&
+        currentUserId != null &&
+        list.ownerId != currentUserId;
+    final isSharedByMe =
+        !isSharedWithMe && (_sharedListState[list.id] ?? false);
     final checked = list.items.where((it) => it.isChecked).length;
     final total = list.items.length;
     final showPrice = list.totalPrice != null;
@@ -334,6 +362,48 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                       .toList(),
                 ),
               ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 28,
+                height: 28,
+                child:
+                    authStateNotifier.value && !isSharedWithMe && !isSharedByMe
+                    ? IconButton(
+                        icon: const Icon(Icons.person_add_outlined, size: 18),
+                        onPressed: () => _shareList(list),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                      )
+                    : isSharedByMe
+                    ? DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.14,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Icon(
+                          Icons.link_outlined,
+                          size: 14,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                    : isSharedWithMe
+                    ? DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondary.withValues(
+                            alpha: 0.18,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Icon(
+                          Icons.people_alt_outlined,
+                          size: 14,
+                          color: theme.colorScheme.secondary,
+                        ),
+                      )
+                    : null,
+              ),
               if (showPrice) ...[
                 const SizedBox(width: 8),
                 Text(
@@ -341,15 +411,6 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
-                ),
-              ],
-              if (authStateNotifier.value) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.person_add_outlined, size: 18),
-                  onPressed: () => _shareList(list),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
                 ),
               ],
             ],
@@ -425,6 +486,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         unshare: (userId) => listRepository.unshareList(list.id, userId),
       ),
     );
+    if (!mounted) return;
+    final shares = await listRepository.listHasShares(list.id);
+    if (!mounted) return;
+    setState(() {
+      _sharedListState[list.id] = shares;
+    });
   }
 
   Future<void> _shareTemplate(ShoppingListTemplate template) async {
@@ -601,11 +668,17 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {});
   }
 
-  void _deleteList(ShoppingList list) {
-    setState(() {
-      _lists.remove(list);
-    });
-    _run(listRepository.deleteList(list.id));
+  Future<void> _deleteList(ShoppingList list) async {
+    try {
+      await listRepository.deleteList(list);
+      if (!mounted) return;
+      setState(() {
+        _lists.remove(list);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   void _toggleCompleted(ShoppingList list) {
@@ -622,7 +695,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         _addLabel(label);
       }
     }
-    final result = await showDialog<List<String>>(
+    final previousLabels = List<String>.from(list.labels);
+    await showDialog<void>(
       context: context,
       builder: (_) => _EditLabelsDialog(
         availableLabels: _labelStore,
@@ -650,14 +724,20 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         },
       ),
     );
-    if (result != null && mounted) {
+    if (mounted &&
+        (labelDeleted ||
+            previousLabels.length != list.labels.length ||
+            !previousLabels.every(list.labels.contains))) {
       setState(() {
-        list.labels = result;
+        list.labels = List<String>.from(list.labels);
       });
       _run(listRepository.saveList(list));
       _run(listRepository.saveLabels(_labelStore));
       if (labelDeleted) {
         for (final item in _lists) {
+          if (item.id == list.id) {
+            continue;
+          }
           _run(listRepository.saveList(item));
         }
       }
@@ -671,7 +751,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     if (direction == DismissDirection.startToEnd) {
       _toggleCompleted(list);
     } else {
-      _deleteList(list);
+      await _deleteList(list);
     }
     return false;
   }
@@ -896,6 +976,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               onPressed: _openStats,
             ),
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _reloadData,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
             onPressed: _openSettings,
@@ -970,6 +1055,24 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Dismissible(
                             key: ValueKey('completed-${list.id}'),
+                            direction:
+                                list.ownerId != null &&
+                                    Supabase
+                                            .instance
+                                            .client
+                                            .auth
+                                            .currentUser
+                                            ?.id !=
+                                        null &&
+                                    list.ownerId !=
+                                        Supabase
+                                            .instance
+                                            .client
+                                            .auth
+                                            .currentUser
+                                            ?.id
+                                ? DismissDirection.startToEnd
+                                : DismissDirection.horizontal,
                             background: Container(
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.secondary,
@@ -1027,6 +1130,24 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Dismissible(
                           key: ValueKey(list.id),
+                          direction:
+                              list.ownerId != null &&
+                                  Supabase
+                                          .instance
+                                          .client
+                                          .auth
+                                          .currentUser
+                                          ?.id !=
+                                      null &&
+                                  list.ownerId !=
+                                      Supabase
+                                          .instance
+                                          .client
+                                          .auth
+                                          .currentUser
+                                          ?.id
+                              ? DismissDirection.startToEnd
+                              : DismissDirection.horizontal,
                           background: Container(
                             decoration: BoxDecoration(
                               color: theme.colorScheme.secondary,

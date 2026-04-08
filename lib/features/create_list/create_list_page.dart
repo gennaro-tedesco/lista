@@ -618,7 +618,7 @@ class _CreateListPageState extends State<CreateListPage> {
                     child: ListView(
                       controller: _scrollController,
                       children: [
-                        const SizedBox(height: 56),
+                        const SizedBox(height: 41),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                           child: Column(
@@ -661,7 +661,7 @@ class _CreateListPageState extends State<CreateListPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -677,30 +677,28 @@ class _CreateListPageState extends State<CreateListPage> {
                     ],
                   ),
                 ),
-                SafeArea(
-                  top: false,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-                        child: IconButton.filled(
-                          onPressed: _popWithCurrentList,
-                          style: IconButton.styleFrom(
-                            backgroundColor: fillColor,
-                            foregroundColor: _items.isEmpty
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.primary,
-                          ),
-                          tooltip: _items.isEmpty ? 'Back' : 'Save',
-                          icon: Icon(
-                            _items.isEmpty
-                                ? LucideIcons.chevron_left
-                                : LucideIcons.check,
-                            size: 22,
-                          ),
+                      IconButton.filled(
+                        onPressed: _popWithCurrentList,
+                        style: IconButton.styleFrom(
+                          backgroundColor: fillColor,
+                          foregroundColor: _items.isEmpty
+                              ? theme.colorScheme.onSurface
+                              : theme.colorScheme.primary,
+                        ),
+                        tooltip: _items.isEmpty ? 'Back' : 'Save',
+                        icon: Icon(
+                          _items.isEmpty
+                              ? LucideIcons.chevron_left
+                              : LucideIcons.check,
+                          size: 22,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Row(
                           children: [

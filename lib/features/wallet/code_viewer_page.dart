@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../models/stored_code.dart';
 
@@ -44,6 +45,15 @@ class _CodeViewerPageState extends State<CodeViewerPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        leading: IconButton.filled(
+          onPressed: () => Navigator.pop(context),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white12,
+            foregroundColor: Colors.white,
+          ),
+          tooltip: 'Back',
+          icon: const Icon(LucideIcons.chevron_left, size: 22),
+        ),
         title: Text(code.name),
       ),
       body: PageView.builder(

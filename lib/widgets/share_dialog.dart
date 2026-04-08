@@ -23,6 +23,7 @@ class _ShareDialogState extends State<ShareDialog> {
   List<UserProfile>? _users;
   Set<String>? _initialShares;
   Set<String> _selected = {};
+  Object? _loadError;
   bool _saving = false;
 
   @override
@@ -32,13 +33,28 @@ class _ShareDialogState extends State<ShareDialog> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([widget.getUsers(), widget.getShares()]);
-    if (!mounted) return;
     setState(() {
-      _users = results[0] as List<UserProfile>;
-      _initialShares = Set<String>.from(results[1] as List<String>);
-      _selected = Set<String>.from(_initialShares!);
+      _loadError = null;
+      _users = null;
+      _initialShares = null;
     });
+    try {
+      final results = await Future.wait([
+        widget.getUsers(),
+        widget.getShares(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _users = results[0] as List<UserProfile>;
+        _initialShares = Set<String>.from(results[1] as List<String>);
+        _selected = Set<String>.from(_initialShares!);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+      });
+    }
   }
 
   Future<void> _confirm() async {
@@ -68,7 +84,23 @@ class _ShareDialogState extends State<ShareDialog> {
     final users = _users;
     return AlertDialog(
       title: const Text('Share with'),
-      content: users == null
+      content: _loadError != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Failed to load sharing data.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _saving ? null : _load,
+                  child: const Text('Retry'),
+                ),
+              ],
+            )
+          : users == null
           ? const SizedBox(
               height: 80,
               child: Center(child: CircularProgressIndicator()),
@@ -83,7 +115,7 @@ class _ShareDialogState extends State<ShareDialog> {
                     .map(
                       (user) => CheckboxListTile(
                         value: _selected.contains(user.id),
-                        title: Text(user.email),
+                        title: Text(user.name),
                         onChanged: (v) => setState(() {
                           if (v == true) {
                             _selected.add(user.id);
@@ -103,7 +135,9 @@ class _ShareDialogState extends State<ShareDialog> {
           icon: const Icon(Icons.close),
         ),
         IconButton(
-          onPressed: (_saving || users == null) ? null : _confirm,
+          onPressed: (_saving || users == null || _loadError != null)
+              ? null
+              : _confirm,
           icon: _saving
               ? const SizedBox(
                   width: 16,

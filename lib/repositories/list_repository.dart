@@ -10,13 +10,14 @@ abstract interface class ListRepository {
   Future<List<String>> getLabels();
   Future<List<StoredCode>> getCodes();
   Future<void> saveList(ShoppingList list);
-  Future<void> deleteList(String id);
+  Future<void> deleteList(ShoppingList list);
   Future<void> saveTemplate(ShoppingListTemplate template);
   Future<void> deleteTemplate(String id);
   Future<void> saveLabels(List<String> labels);
   Future<void> saveCode(StoredCode code);
   Future<void> deleteCode(String id);
   Future<List<UserProfile>> getUsers();
+  Future<bool> listHasShares(String listId);
   Future<List<String>> getListShares(String listId);
   Future<List<String>> getTemplateShares(String templateId);
   Future<void> shareList(String listId, String withUserId);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QrScannerPage extends StatefulWidget {
@@ -42,8 +43,22 @@ class _QrScannerPageState extends State<QrScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Code')),
+      appBar: AppBar(
+        leading: IconButton.filled(
+          onPressed: () => Navigator.pop(context),
+          style: IconButton.styleFrom(
+            backgroundColor:
+                theme.inputDecorationTheme.fillColor ??
+                theme.colorScheme.surfaceContainerHighest,
+            foregroundColor: theme.colorScheme.onSurface,
+          ),
+          tooltip: 'Back',
+          icon: const Icon(LucideIcons.chevron_left, size: 22),
+        ),
+        title: const Text('Scan Code'),
+      ),
       body: MobileScanner(controller: _controller, onDetect: _onDetect),
     );
   }

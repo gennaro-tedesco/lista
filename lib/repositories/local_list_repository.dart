@@ -80,8 +80,8 @@ class LocalListRepository implements ListRepository {
   }
 
   @override
-  Future<void> deleteList(String id) async {
-    _lists.removeWhere((e) => e.id == id);
+  Future<void> deleteList(ShoppingList list) async {
+    _lists.removeWhere((e) => e.id == list.id);
     await _persist();
   }
 
@@ -127,6 +127,9 @@ class LocalListRepository implements ListRepository {
 
   @override
   Future<List<UserProfile>> getUsers() async => [];
+
+  @override
+  Future<bool> listHasShares(String listId) async => false;
 
   @override
   Future<List<String>> getListShares(String listId) async => [];
