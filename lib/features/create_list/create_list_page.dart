@@ -11,15 +11,17 @@ import '../../repositories/list_repository.dart';
 import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
+import '../../services/voice_service.dart';
 import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/centered_popup_shell.dart';
-import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
 import '../../widgets/template_saved_toast.dart';
+import '../../widgets/recording_overlay.dart';
+import '../../widgets/voice_confirmation_sheet.dart';
 
 const _uuid = Uuid();
 
@@ -49,11 +51,13 @@ class CreateListPage extends StatefulWidget {
 class _CreateListPageState extends State<CreateListPage>
     with SingleTickerProviderStateMixin {
   static final _random = Random();
-  DateTime _selectedDate = DateTime.now();
+  final DateTime _selectedDate = DateTime.now();
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
+  bool _isRecording = false;
+  bool _isProcessing = false;
   static const _edgeScrollThreshold = 80.0;
   static const _edgeScrollSpeed = 400.0;
   static const _edgeScrollInterval = Duration(milliseconds: 16);
@@ -114,6 +118,7 @@ class _CreateListPageState extends State<CreateListPage>
   @override
   void dispose() {
     _scrollTimer?.cancel();
+    if (_isRecording) unawaited(VoiceService.cancel());
     _fishController.dispose();
     _itemController.dispose();
     _quantityController.dispose();
@@ -387,6 +392,61 @@ class _CreateListPageState extends State<CreateListPage>
     );
     if (!mounted || save == null) return;
     Navigator.pop(context, save ? _buildListResult() : null);
+  }
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      setState(() {
+        _isRecording = false;
+        _isProcessing = true;
+      });
+      List<ExtractedItem> extracted;
+      try {
+        extracted = await VoiceService.stopAndExtract();
+      } on VoiceException catch (e) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'no_audio'
+                  ? 'No audio recorded — try speaking for longer'
+                  : 'Could not reach the server — check your connection',
+            ),
+          ),
+        );
+        return;
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not reach the server — check your connection')),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      if (extracted.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No shopping items recognised — try speaking more clearly'),
+          ),
+        );
+        return;
+      }
+      final confirmed = await VoiceConfirmationSheet.show(context, extracted);
+      if (!mounted || confirmed == null) return;
+      setState(() {
+        for (final item in confirmed) {
+          _items.add(item.toItem());
+        }
+      });
+    } else {
+      if (!await VoiceService.hasPermission()) return;
+      await VoiceService.start();
+      if (!mounted) return;
+      setState(() => _isRecording = true);
+    }
   }
 
   Future<void> _saveAsTemplate() async {
@@ -720,7 +780,9 @@ class _CreateListPageState extends State<CreateListPage>
         body: GestureDetector(
           onTap: _dismissSuggestions,
           behavior: HitTestBehavior.translucent,
-          child: SafeArea(
+          child: Stack(
+            children: [
+              SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -734,22 +796,6 @@ class _CreateListPageState extends State<CreateListPage>
                           controller: _scrollController,
                           children: [
                             const SizedBox(height: 41),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Center(
-                                    child: DateSelectorField(
-                                      selectedDate: _selectedDate,
-                                      onDateSelected: (date) =>
-                                          setState(() => _selectedDate = date),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
                             if (_items.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               for (final entry in groupedItems(_items).entries)
@@ -876,6 +922,29 @@ class _CreateListPageState extends State<CreateListPage>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      if (authStateNotifier.value) ...[
+                        IconButton.filled(
+                          onPressed: _isProcessing ? null : _toggleRecording,
+                          style: IconButton.styleFrom(
+                            backgroundColor: fillColor,
+                            foregroundColor: _isRecording
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.onSurface,
+                          ),
+                          tooltip: 'Voice input',
+                          icon: _isProcessing
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                )
+                              : const Icon(LucideIcons.mic, size: 22),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       IconButton.filled(
                         onPressed: () => _showAddItemPopup(),
                         style: IconButton.styleFrom(
@@ -958,6 +1027,9 @@ class _CreateListPageState extends State<CreateListPage>
                 ),
               ],
             ),
+          ),
+              if (_isRecording) Positioned.fill(child: RecordingOverlay(onTap: _toggleRecording)),
+            ],
           ),
         ),
       ),

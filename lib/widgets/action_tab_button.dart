@@ -4,12 +4,14 @@ class ActionTabButton extends StatelessWidget {
   final IconData icon;
   final Color? iconColor;
   final VoidCallback? onTap;
+  final bool isLoading;
 
   const ActionTabButton({
     super.key,
     required this.icon,
     this.iconColor,
     this.onTap,
+    this.isLoading = false,
   });
 
   @override
@@ -26,10 +28,21 @@ class ActionTabButton extends StatelessWidget {
     return Material(
       color: fillColor,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         child: SizedBox(
           height: 56,
-          child: Center(child: Icon(icon, size: 18, color: color)),
+          child: Center(
+            child: isLoading
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Icon(icon, size: 18, color: color),
+          ),
         ),
       ),
     );

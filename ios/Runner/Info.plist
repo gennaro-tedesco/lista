@@ -59,6 +59,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Used to record voice input for adding shopping items</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Used to scan QR codes and barcodes for your wallet</string>
 	<key>NSPhotoLibraryUsageDescription</key>
