@@ -53,7 +53,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final TextEditingController _totalPriceController = TextEditingController();
   final FocusNode _itemFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  Timer? _scrollTimer;
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
+  static const _edgeScrollThreshold = 80.0;
+  static const _edgeScrollSpeed = 400.0;
+  static const _edgeScrollInterval = Duration(milliseconds: 16);
+  static const _edgeScrollFrameSeconds = 16 / 1000;
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
   final Set<String> _collapsedCategories = {};
@@ -81,6 +86,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _unsubscribeRealtime();
     _itemController.dispose();
     _quantityController.dispose();
@@ -88,6 +94,26 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _itemFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _startScroll(double direction) {
+    if (_scrollTimer != null) return;
+    _scrollTimer = Timer.periodic(_edgeScrollInterval, (_) {
+      if (!_scrollController.hasClients) {
+        _stopEdgeScroll();
+        return;
+      }
+      final newOffset =
+          (_scrollController.offset +
+                  direction * _edgeScrollSpeed * _edgeScrollFrameSeconds)
+              .clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    });
+  }
+
+  void _stopEdgeScroll() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
   }
 
   bool get _canSaveTemplate =>
@@ -807,14 +833,17 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           return LongPressDraggable<_DraggedItem>(
             data: _DraggedItem(item.id),
             axis: Axis.vertical,
-            onDragStarted: () => _dismissSuggestions(),
+            onDragStarted: _dismissSuggestions,
             onDragEnd: (_) {
               _clearDropPosition(item.id);
               _previewAnchorItemId = null;
               _previewPlaceAfter = null;
+              _stopEdgeScroll();
             },
-            onDraggableCanceled: (velocity, offset) =>
-                _clearDropPosition(item.id),
+            onDraggableCanceled: (velocity, offset) {
+              _clearDropPosition(item.id);
+              _stopEdgeScroll();
+            },
             feedback: Material(
               color: Colors.transparent,
               child: ConstrainedBox(
@@ -878,81 +907,111 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
           child: Column(
             children: [
               Expanded(
-                child: Scrollbar(
-                  controller: _scrollController,
-                  thumbVisibility: true,
-                  child: ListView(
-                    controller: _scrollController,
-                    children: [
-                      const SizedBox(height: 41),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: DateSelectorField(
-                                selectedDate: widget.list.date,
-                                onDateSelected: (date) {
-                                  setState(() => widget.list.date = date);
-                                  unawaited(_queueSave());
-                                },
-                              ),
+                child: Stack(
+                  children: [
+                    Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: ListView(
+                        controller: _scrollController,
+                        children: [
+                          const SizedBox(height: 41),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Center(
+                                  child: DateSelectorField(
+                                    selectedDate: widget.list.date,
+                                    onDateSelected: (date) {
+                                      setState(() => widget.list.date = date);
+                                      unawaited(_queueSave());
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 20,
+                                  child: Align(
+                                    alignment: const Alignment(0, 8),
+                                    child: Text(
+                                      '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color:
+                                                checked == items.length &&
+                                                    items.isNotEmpty
+                                                ? theme.colorScheme.primary
+                                                : null,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(
-                              height: 20,
-                              child: Align(
-                                alignment: const Alignment(0, 8),
+                          ),
+                          if (items.isNotEmpty) ...[
+                            for (final entry in groupedItems(
+                              widget.list.items,
+                            ).entries)
+                              CategorySection(
+                                category: entry.key,
+                                items: entry.value,
+                                isCollapsed: _collapsedCategories.contains(
+                                  entry.key,
+                                ),
+                                onToggleCollapse: () =>
+                                    _toggleCollapse(entry.key),
+                                onAdd: () => _showAddItemPopup(entry.key),
+                                itemBuilder: (ctx, item) => _buildItemRow(
+                                  ctx,
+                                  item,
+                                  category: entry.key,
+                                  withHandle: true,
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                          ] else
+                            Padding(
+                              padding: const EdgeInsets.all(40),
+                              child: Center(
                                 child: Text(
-                                  '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color:
-                                        checked == items.length &&
-                                            items.isNotEmpty
-                                        ? theme.colorScheme.primary
-                                        : null,
+                                  'No items in this list',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
-                      if (items.isNotEmpty) ...[
-                        for (final entry in groupedItems(
-                          widget.list.items,
-                        ).entries)
-                          CategorySection(
-                            category: entry.key,
-                            items: entry.value,
-                            isCollapsed: _collapsedCategories.contains(
-                              entry.key,
-                            ),
-                            onToggleCollapse: () => _toggleCollapse(entry.key),
-                            onAdd: () => _showAddItemPopup(entry.key),
-                            itemBuilder: (ctx, item) => _buildItemRow(
-                              ctx,
-                              item,
-                              category: entry.key,
-                              withHandle: true,
-                            ),
-                          ),
-                        const SizedBox(height: 8),
-                      ] else
-                        Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Center(
-                            child: Text(
-                              'No items in this list',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: _edgeScrollThreshold,
+                      child: DragTarget<_DraggedItem>(
+                        onWillAcceptWithDetails: (_) => true,
+                        onMove: (_) => _startScroll(-1),
+                        onLeave: (_) => _stopEdgeScroll(),
+                        builder: (context, c, r) => const SizedBox.expand(),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: _edgeScrollThreshold,
+                      child: DragTarget<_DraggedItem>(
+                        onWillAcceptWithDetails: (_) => true,
+                        onMove: (_) => _startScroll(1),
+                        onLeave: (_) => _stopEdgeScroll(),
+                        builder: (context, c, r) => const SizedBox.expand(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Padding(

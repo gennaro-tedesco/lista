@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -52,6 +53,11 @@ class _CreateListPageState extends State<CreateListPage>
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _scrollTimer;
+  static const _edgeScrollThreshold = 80.0;
+  static const _edgeScrollSpeed = 400.0;
+  static const _edgeScrollInterval = Duration(milliseconds: 16);
+  static const _edgeScrollFrameSeconds = 16 / 1000;
   final List<ShoppingListItem> _items = [];
   List<FoodSuggestion> _suggestions = [];
   late final Set<String> _templateSignatures;
@@ -107,6 +113,7 @@ class _CreateListPageState extends State<CreateListPage>
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _fishController.dispose();
     _itemController.dispose();
     _quantityController.dispose();
@@ -316,6 +323,26 @@ class _CreateListPageState extends State<CreateListPage>
     );
     _pendingCategory = null;
     _suggestions = [];
+  }
+
+  void _startScroll(double direction) {
+    if (_scrollTimer != null) return;
+    _scrollTimer = Timer.periodic(_edgeScrollInterval, (_) {
+      if (!_scrollController.hasClients) {
+        _stopEdgeScroll();
+        return;
+      }
+      final newOffset =
+          (_scrollController.offset +
+                  direction * _edgeScrollSpeed * _edgeScrollFrameSeconds)
+              .clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(newOffset);
+    });
+  }
+
+  void _stopEdgeScroll() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
   }
 
   void _dismissSuggestions() {
@@ -600,14 +627,17 @@ class _CreateListPageState extends State<CreateListPage>
           return LongPressDraggable<_DraggedItem>(
             data: _DraggedItem(item.id),
             axis: Axis.vertical,
-            onDragStarted: () => _dismissSuggestions(),
+            onDragStarted: _dismissSuggestions,
             onDragEnd: (_) {
               _clearDropPosition(item.id);
               _previewAnchorItemId = null;
               _previewPlaceAfter = null;
+              _stopEdgeScroll();
             },
-            onDraggableCanceled: (velocity, offset) =>
-                _clearDropPosition(item.id),
+            onDraggableCanceled: (velocity, offset) {
+              _clearDropPosition(item.id);
+              _stopEdgeScroll();
+            },
             feedback: Material(
               color: Colors.transparent,
               child: ConstrainedBox(
@@ -669,115 +699,150 @@ class _CreateListPageState extends State<CreateListPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    child: ListView(
-                      controller: _scrollController,
-                      children: [
-                        const SizedBox(height: 41),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child: DateSelectorField(
-                                  selectedDate: _selectedDate,
-                                  onDateSelected: (date) =>
-                                      setState(() => _selectedDate = date),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ),
-                        if (_items.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          for (final entry in groupedItems(_items).entries)
-                            CategorySection(
-                              category: entry.key,
-                              items: entry.value,
-                              isCollapsed: _collapsedCategories.contains(
-                                entry.key,
-                              ),
-                              onToggleCollapse: () =>
-                                  _toggleCollapse(entry.key),
-                              onAdd: () => _showAddItemPopup(entry.key),
-                              itemBuilder: (ctx, item) => _buildItemRow(
-                                ctx,
-                                item,
-                                category: entry.key,
-                                withHandle: true,
+                  child: Stack(
+                    children: [
+                      Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        child: ListView(
+                          controller: _scrollController,
+                          children: [
+                            const SizedBox(height: 41),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Center(
+                                    child: DateSelectorField(
+                                      selectedDate: _selectedDate,
+                                      onDateSelected: (date) =>
+                                          setState(() => _selectedDate = date),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
                               ),
                             ),
-                          const SizedBox(height: 8),
-                        ] else ...[
-                          const SizedBox(height: 32),
-                          SizedBox(
-                            height: MediaQuery.sizeOf(context).height * 0.5,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final width = constraints.maxWidth - 48;
-                                final height = constraints.maxHeight - 48;
-                                return AnimatedBuilder(
-                                  animation: _fishController,
-                                  builder: (context, child) {
-                                    final progress = _fishController.value;
-                                    final leadOpacity = _windowOpacity(
-                                      progress,
-                                      start: 0.0,
-                                      end: 0.62,
-                                    );
-                                    final followOpacity = _windowOpacity(
-                                      progress,
-                                      start: 0.18,
-                                      end: 0.8,
-                                    );
-                                    return Stack(
-                                      children: [
-                                        Positioned(
-                                          left: 24 + (_fishPosition.dx * width),
-                                          top: 24 + (_fishPosition.dy * height),
-                                          child: Opacity(
-                                            opacity: _fishStartsFirst
-                                                ? leadOpacity
-                                                : followOpacity,
-                                            child: Text(
-                                              '🐟',
-                                              style:
-                                                  theme.textTheme.displayMedium,
+                            if (_items.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              for (final entry in groupedItems(_items).entries)
+                                CategorySection(
+                                  category: entry.key,
+                                  items: entry.value,
+                                  isCollapsed: _collapsedCategories.contains(
+                                    entry.key,
+                                  ),
+                                  onToggleCollapse: () =>
+                                      _toggleCollapse(entry.key),
+                                  onAdd: () => _showAddItemPopup(entry.key),
+                                  itemBuilder: (ctx, item) => _buildItemRow(
+                                    ctx,
+                                    item,
+                                    category: entry.key,
+                                    withHandle: true,
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                            ] else ...[
+                              const SizedBox(height: 32),
+                              SizedBox(
+                                height: MediaQuery.sizeOf(context).height * 0.5,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final width = constraints.maxWidth - 48;
+                                    final height = constraints.maxHeight - 48;
+                                    return AnimatedBuilder(
+                                      animation: _fishController,
+                                      builder: (context, child) {
+                                        final progress = _fishController.value;
+                                        final leadOpacity = _windowOpacity(
+                                          progress,
+                                          start: 0.0,
+                                          end: 0.62,
+                                        );
+                                        final followOpacity = _windowOpacity(
+                                          progress,
+                                          start: 0.18,
+                                          end: 0.8,
+                                        );
+                                        return Stack(
+                                          children: [
+                                            Positioned(
+                                              left:
+                                                  24 +
+                                                  (_fishPosition.dx * width),
+                                              top:
+                                                  24 +
+                                                  (_fishPosition.dy * height),
+                                              child: Opacity(
+                                                opacity: _fishStartsFirst
+                                                    ? leadOpacity
+                                                    : followOpacity,
+                                                child: Text(
+                                                  '🐟',
+                                                  style: theme
+                                                      .textTheme
+                                                      .displayMedium,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left:
-                                              24 +
-                                              (_penguinPosition.dx * width),
-                                          top:
-                                              24 +
-                                              (_penguinPosition.dy * height),
-                                          child: Opacity(
-                                            opacity: _fishStartsFirst
-                                                ? followOpacity
-                                                : leadOpacity,
-                                            child: Text(
-                                              '🐧',
-                                              style:
-                                                  theme.textTheme.displayMedium,
+                                            Positioned(
+                                              left:
+                                                  24 +
+                                                  (_penguinPosition.dx * width),
+                                              top:
+                                                  24 +
+                                                  (_penguinPosition.dy *
+                                                      height),
+                                              child: Opacity(
+                                                opacity: _fishStartsFirst
+                                                    ? followOpacity
+                                                    : leadOpacity,
+                                                child: Text(
+                                                  '🐧',
+                                                  style: theme
+                                                      .textTheme
+                                                      .displayMedium,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
+                                          ],
+                                        );
+                                      },
                                     );
                                   },
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: _edgeScrollThreshold,
+                        child: DragTarget<_DraggedItem>(
+                          onWillAcceptWithDetails: (_) => true,
+                          onMove: (_) => _startScroll(-1),
+                          onLeave: (_) => _stopEdgeScroll(),
+                          builder: (context, c, r) => const SizedBox.expand(),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: _edgeScrollThreshold,
+                        child: DragTarget<_DraggedItem>(
+                          onWillAcceptWithDetails: (_) => true,
+                          onMove: (_) => _startScroll(1),
+                          onLeave: (_) => _stopEdgeScroll(),
+                          builder: (context, c, r) => const SizedBox.expand(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Padding(

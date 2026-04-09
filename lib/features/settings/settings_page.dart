@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'account_page.dart';
 import 'appearance_settings_page.dart';
+import 'how_to_page.dart';
 
 const _appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
 
@@ -32,6 +33,12 @@ class SettingsPage extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () =>
                     _openSubpage(context, const AppearanceSettingsPage()),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                title: const Text('How to'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openSubpage(context, const HowToPage()),
               ),
               const Divider(height: 1),
               ListTile(
