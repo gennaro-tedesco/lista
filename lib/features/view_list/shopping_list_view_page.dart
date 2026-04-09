@@ -16,11 +16,13 @@ import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
 import '../../widgets/autocomplete_dropdown.dart';
 import '../../widgets/centered_popup_shell.dart';
-import '../../widgets/date_selector_field.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
+import '../../widgets/recording_overlay.dart';
 import '../../widgets/template_saved_toast.dart';
+import '../../widgets/voice_confirmation_sheet.dart';
+import '../../services/voice_service.dart';
 
 const _uuid = Uuid();
 
@@ -72,6 +74,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool _saveQueued = false;
   bool _hasPendingLocalSave = false;
   bool _refreshAfterSave = false;
+  bool _isRecording = false;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -87,6 +91,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   @override
   void dispose() {
     _scrollTimer?.cancel();
+    if (_isRecording) unawaited(VoiceService.cancel());
     _unsubscribeRealtime();
     _itemController.dispose();
     _quantityController.dispose();
@@ -350,6 +355,104 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
     _itemController.clear();
     _quantityController.clear();
+    unawaited(_queueSave());
+  }
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      setState(() {
+        _isRecording = false;
+        _isProcessing = true;
+      });
+      List<ExtractedItem> extracted;
+      try {
+        extracted = await VoiceService.stopAndExtract();
+      } on VoiceException catch (e) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'no_audio'
+                  ? 'No audio recorded — try speaking for longer'
+                  : 'Could not reach the server — check your connection',
+            ),
+          ),
+        );
+        return;
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not reach the server — check your connection'),
+          ),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      if (extracted.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No shopping items recognised — try speaking more clearly',
+            ),
+          ),
+        );
+        return;
+      }
+      final confirmed = await VoiceConfirmationSheet.show(context, extracted);
+      if (!mounted || confirmed == null) return;
+      setState(() {
+        for (final item in confirmed) {
+          widget.list.items.add(item.toItem());
+        }
+      });
+      unawaited(_queueSave());
+    } else {
+      if (!await VoiceService.hasPermission()) return;
+      await VoiceService.start();
+      if (!mounted) return;
+      setState(() => _isRecording = true);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+    final picked = await showGeneralDialog<DateTime>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black38,
+      pageBuilder: (ctx, _, _) => Center(
+        child: Transform.scale(
+          scale: 0.9,
+          child: Material(
+            color: fillColor,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                width: 300,
+                child: CalendarDatePicker(
+                  initialDate: widget.list.date,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                  onDateChanged: (date) => Navigator.pop(ctx, date),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => widget.list.date = picked);
     unawaited(_queueSave());
   }
 
@@ -903,181 +1006,195 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       body: GestureDetector(
         onTap: _dismissSuggestions,
         behavior: HitTestBehavior.translucent,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: true,
-                      child: ListView(
-                        controller: _scrollController,
-                        children: [
-                          const SizedBox(height: 41),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(
-                                  child: DateSelectorField(
-                                    selectedDate: widget.list.date,
-                                    onDateSelected: (date) {
-                                      setState(() => widget.list.date = date);
-                                      unawaited(_queueSave());
-                                    },
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Scrollbar(
+                          controller: _scrollController,
+                          thumbVisibility: true,
+                          child: ListView(
+                            controller: _scrollController,
+                            children: [
+                              const SizedBox(height: 41),
+                              if (items.isNotEmpty) ...[
+                                for (final entry in groupedItems(
+                                  widget.list.items,
+                                ).entries)
+                                  CategorySection(
+                                    category: entry.key,
+                                    items: entry.value,
+                                    isCollapsed: _collapsedCategories.contains(
+                                      entry.key,
+                                    ),
+                                    onToggleCollapse: () =>
+                                        _toggleCollapse(entry.key),
+                                    onAdd: () => _showAddItemPopup(entry.key),
+                                    itemBuilder: (ctx, item) => _buildItemRow(
+                                      ctx,
+                                      item,
+                                      category: entry.key,
+                                      withHandle: true,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(
-                                  height: 20,
-                                  child: Align(
-                                    alignment: const Alignment(0, 8),
+                                const SizedBox(height: 8),
+                              ] else
+                                Padding(
+                                  padding: const EdgeInsets.all(40),
+                                  child: Center(
                                     child: Text(
-                                      '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
-                                      style: theme.textTheme.bodySmall
+                                      'No items in this list',
+                                      style: theme.textTheme.bodyMedium
                                           ?.copyWith(
-                                            color:
-                                                checked == items.length &&
-                                                    items.isNotEmpty
-                                                ? theme.colorScheme.primary
-                                                : null,
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                           ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              const SizedBox(height: 8),
+                            ],
                           ),
-                          if (items.isNotEmpty) ...[
-                            for (final entry in groupedItems(
-                              widget.list.items,
-                            ).entries)
-                              CategorySection(
-                                category: entry.key,
-                                items: entry.value,
-                                isCollapsed: _collapsedCategories.contains(
-                                  entry.key,
-                                ),
-                                onToggleCollapse: () =>
-                                    _toggleCollapse(entry.key),
-                                onAdd: () => _showAddItemPopup(entry.key),
-                                itemBuilder: (ctx, item) => _buildItemRow(
-                                  ctx,
-                                  item,
-                                  category: entry.key,
-                                  withHandle: true,
+                        ),
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: _edgeScrollThreshold,
+                          child: DragTarget<_DraggedItem>(
+                            onWillAcceptWithDetails: (_) => true,
+                            onMove: (_) => _startScroll(-1),
+                            onLeave: (_) => _stopEdgeScroll(),
+                            builder: (context, c, r) => const SizedBox.expand(),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: _edgeScrollThreshold,
+                          child: DragTarget<_DraggedItem>(
+                            onWillAcceptWithDetails: (_) => true,
+                            onMove: (_) => _startScroll(1),
+                            onLeave: (_) => _stopEdgeScroll(),
+                            builder: (context, c, r) => const SizedBox.expand(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Row(
+                      children: [
+                        Text(
+                          '$checked of ${items.length} item${items.length == 1 ? '' : 's'} checked',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: checked == items.length && items.isNotEmpty
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (authStateNotifier.value) ...[
+                          IconButton.filled(
+                            onPressed: _isProcessing ? null : _toggleRecording,
+                            style: IconButton.styleFrom(
+                              backgroundColor: fillColor,
+                              foregroundColor: _isRecording
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.onSurface,
+                            ),
+                            tooltip: 'Voice input',
+                            icon: _isProcessing
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : const Icon(LucideIcons.mic, size: 22),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        IconButton.filled(
+                          onPressed: () => _showAddItemPopup(),
+                          style: IconButton.styleFrom(
+                            backgroundColor: fillColor,
+                            foregroundColor: theme.colorScheme.onSurface,
+                          ),
+                          tooltip: 'Add item',
+                          icon: const Icon(Icons.add, size: 22),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        IconButton.filled(
+                          onPressed: () => Navigator.pop(context),
+                          style: IconButton.styleFrom(
+                            backgroundColor: fillColor,
+                            foregroundColor: theme.colorScheme.onSurface,
+                          ),
+                          tooltip: 'Back',
+                          icon: const Icon(LucideIcons.chevron_left, size: 22),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ActionTabButton(
+                                  icon: LucideIcons.calendar,
+                                  onTap: _pickDate,
                                 ),
                               ),
-                            const SizedBox(height: 8),
-                          ] else
-                            Padding(
-                              padding: const EdgeInsets.all(40),
-                              child: Center(
-                                child: Text(
-                                  'No items in this list',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
+                              Expanded(
+                                child: ActionTabButton(
+                                  icon: LucideIcons.star,
+                                  onTap: _canSaveTemplate
+                                      ? _saveAsTemplate
+                                      : null,
+                                ),
+                              ),
+                              if (authStateNotifier.value && isOwner)
+                                Expanded(
+                                  child: ActionTabButton(
+                                    icon: _isSharedByMe
+                                        ? Icons.link_outlined
+                                        : Icons.person_add_outlined,
+                                    onTap: _isSharedByMe ? null : _shareList,
                                   ),
                                 ),
+                              Expanded(
+                                child: ActionTabButton(
+                                  icon: Icons.euro_outlined,
+                                  onTap: _openPriceDialog,
+                                ),
                               ),
-                            ),
-                          const SizedBox(height: 8),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: _edgeScrollThreshold,
-                      child: DragTarget<_DraggedItem>(
-                        onWillAcceptWithDetails: (_) => true,
-                        onMove: (_) => _startScroll(-1),
-                        onLeave: (_) => _stopEdgeScroll(),
-                        builder: (context, c, r) => const SizedBox.expand(),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: _edgeScrollThreshold,
-                      child: DragTarget<_DraggedItem>(
-                        onWillAcceptWithDetails: (_) => true,
-                        onMove: (_) => _startScroll(1),
-                        onLeave: (_) => _stopEdgeScroll(),
-                        builder: (context, c, r) => const SizedBox.expand(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton.filled(
-                      onPressed: () => _showAddItemPopup(),
-                      style: IconButton.styleFrom(
-                        backgroundColor: fillColor,
-                        foregroundColor: theme.colorScheme.onSurface,
-                      ),
-                      tooltip: 'Add item',
-                      icon: const Icon(Icons.add, size: 22),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    IconButton.filled(
-                      onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: fillColor,
-                        foregroundColor: theme.colorScheme.onSurface,
-                      ),
-                      tooltip: 'Back',
-                      icon: const Icon(LucideIcons.chevron_left, size: 22),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: ActionTabButton(
-                              icon: LucideIcons.star,
-                              onTap: _canSaveTemplate ? _saveAsTemplate : null,
-                            ),
+                            ],
                           ),
-                          if (authStateNotifier.value && isOwner)
-                            Expanded(
-                              child: ActionTabButton(
-                                icon: _isSharedByMe
-                                    ? Icons.link_outlined
-                                    : Icons.person_add_outlined,
-                                onTap: _isSharedByMe ? null : _shareList,
-                              ),
-                            ),
-                          Expanded(
-                            child: ActionTabButton(
-                              icon: Icons.euro_outlined,
-                              onTap: _openPriceDialog,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            if (_isRecording)
+              Positioned.fill(child: RecordingOverlay(onTap: _toggleRecording)),
+          ],
         ),
       ),
     );

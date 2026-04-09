@@ -53,7 +53,6 @@ class _HowToPageState extends State<HowToPage> {
     (
       title: 'Create List',
       actions: [
-        'Tap the date selector to change the list date.',
         'Tap + to open the add-item popup.',
         'Tap an item checkbox to toggle completion.',
         'Tap an item name to edit it.',
@@ -63,6 +62,7 @@ class _HowToPageState extends State<HowToPage> {
         'Tap a category header to collapse or expand it.',
         'Tap the category add action to add directly into that category.',
         'Tap the star action to save as template when enabled.',
+        'Tap the microphone to start voice input; tap again to stop and extract items.',
         'Tap the share action to share the draft when enabled.',
         'Tap the back button to return; confirm save or discard if items exist.',
         'Tap the checkmark to save the list immediately.',
@@ -71,14 +71,15 @@ class _HowToPageState extends State<HowToPage> {
     (
       title: 'Saved List',
       actions: [
-        'Tap the date selector to change the list date.',
         'Tap + to open the add-item popup.',
+        'Tap the microphone to start voice input; tap again to stop and extract items.',
         'Tap an item checkbox to toggle completion.',
         'Tap an item name to edit it.',
         'Swipe an item right to left to delete it.',
         'Tap the category chevron to change category.',
         'Long press and drag an item to reorder it or move it across categories.',
         'Drag near the top or bottom edge to auto-scroll the list.',
+        'Tap the date selector in the bottom bar to change the list date.',
         'Tap the star action to save as template when enabled.',
         'Tap the share action if you are the owner and sharing is available.',
         'Tap the price action to edit total price and currency.',
@@ -103,7 +104,7 @@ class _HowToPageState extends State<HowToPage> {
       ],
     ),
     (
-      title: 'Code Viewer',
+      title: 'QR Code Viewer',
       actions: [
         'Swipe horizontally to move between saved codes.',
         'Pinch and pan to inspect the current code image.',
@@ -111,7 +112,7 @@ class _HowToPageState extends State<HowToPage> {
       ],
     ),
     (
-      title: 'QR Scanner',
+      title: 'QR Code Scanner',
       actions: [
         'Point the camera at a code to scan it.',
         'Wait for a stable detection to return the captured image.',

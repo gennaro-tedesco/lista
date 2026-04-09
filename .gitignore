@@ -46,3 +46,7 @@ app.*.map.json
 
 # Apple Team ID
 ios/ExportOptions.plist
+
+# Supabase CLI local metadata
+supabase/.temp/
+supabase/.branches/
