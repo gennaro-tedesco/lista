@@ -11,6 +11,7 @@ class HowToPage extends StatefulWidget {
 class _HowToPageState extends State<HowToPage> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _menuKey = GlobalKey();
+  final GlobalKey _scrollViewKey = GlobalKey();
   late final List<GlobalKey> _sectionKeys;
   int _sectionIndex = 0;
 
@@ -63,6 +64,8 @@ class _HowToPageState extends State<HowToPage> {
         'Tap the category add action to add directly into that category.',
         'Tap the star action to save as template when enabled.',
         'Tap the share action to share the draft when enabled.',
+        'Tap the back button to return; confirm save or discard if items exist.',
+        'Tap the checkmark to save the list immediately.',
       ],
     ),
     (
@@ -129,12 +132,48 @@ class _HowToPageState extends State<HowToPage> {
   void initState() {
     super.initState();
     _sectionKeys = List.generate(_sections.length, (_) => GlobalKey());
+    _scrollController.addListener(_handleScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    final viewportContext = _scrollViewKey.currentContext;
+    if (viewportContext == null) {
+      return;
+    }
+    final viewportBox = viewportContext.findRenderObject();
+    if (viewportBox is! RenderBox) {
+      return;
+    }
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy + 8;
+    var nextIndex = 0;
+    for (var index = 0; index < _sectionKeys.length; index++) {
+      final sectionContext = _sectionKeys[index].currentContext;
+      if (sectionContext == null) {
+        continue;
+      }
+      final sectionBox = sectionContext.findRenderObject();
+      if (sectionBox is! RenderBox) {
+        continue;
+      }
+      final sectionTop = sectionBox.localToGlobal(Offset.zero).dy;
+      if (sectionTop <= viewportTop) {
+        nextIndex = index;
+      } else {
+        break;
+      }
+    }
+    if (nextIndex != _sectionIndex && mounted) {
+      setState(() {
+        _sectionIndex = nextIndex;
+      });
+    }
   }
 
   Future<void> _jumpToSection(int index) async {
@@ -259,6 +298,7 @@ class _HowToPageState extends State<HowToPage> {
               controller: _scrollController,
               thumbVisibility: true,
               child: SingleChildScrollView(
+                key: _scrollViewKey,
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(

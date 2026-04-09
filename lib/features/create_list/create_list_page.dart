@@ -363,6 +363,32 @@ class _CreateListPageState extends State<CreateListPage>
     Navigator.pop(context, _items.isEmpty ? null : _buildListResult());
   }
 
+  Future<void> _showBackConfirmation() async {
+    if (_items.isEmpty) {
+      Navigator.pop(context, null);
+      return;
+    }
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save list?'),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.pop(context, false),
+            icon: const Icon(Icons.close),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.check),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || save == null) return;
+    Navigator.pop(context, save ? _buildListResult() : null);
+  }
+
   Future<void> _saveAsTemplate() async {
     if (widget.onSaveTemplate == null || !_canSaveTemplate) {
       return;
@@ -688,7 +714,7 @@ class _CreateListPageState extends State<CreateListPage>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _popWithCurrentList();
+        _showBackConfirmation();
       },
       child: Scaffold(
         body: GestureDetector(
@@ -868,46 +894,64 @@ class _CreateListPageState extends State<CreateListPage>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       IconButton.filled(
-                        onPressed: _popWithCurrentList,
+                        onPressed: _showBackConfirmation,
                         style: IconButton.styleFrom(
                           backgroundColor: fillColor,
-                          foregroundColor: _items.isEmpty
-                              ? theme.colorScheme.onSurface
-                              : theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onSurface,
                         ),
-                        tooltip: _items.isEmpty ? 'Back' : 'Save',
-                        icon: Icon(
-                          _items.isEmpty
-                              ? LucideIcons.chevron_left
-                              : LucideIcons.check,
-                          size: 22,
-                        ),
+                        tooltip: 'Back',
+                        icon: const Icon(LucideIcons.chevron_left, size: 22),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ActionTabButton(
-                                icon: LucideIcons.star,
-                                onTap: _canSaveTemplate
-                                    ? _saveAsTemplate
-                                    : null,
-                              ),
-                            ),
-                            if (authStateNotifier.value)
-                              Expanded(
-                                child: ActionTabButton(
-                                  icon: Icons.person_add_outlined,
-                                  onTap: _items.isNotEmpty
-                                      ? _shareCurrentList
-                                      : null,
-                                ),
+                        child: authStateNotifier.value
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: ActionTabButton(
+                                      icon: LucideIcons.star,
+                                      onTap: _canSaveTemplate
+                                          ? _saveAsTemplate
+                                          : null,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ActionTabButton(
+                                      icon: Icons.person_add_outlined,
+                                      onTap: _items.isNotEmpty
+                                          ? _shareCurrentList
+                                          : null,
+                                    ),
+                                  ),
+                                ],
                               )
-                            else
-                              const Expanded(child: SizedBox.shrink()),
-                          ],
+                            : Center(
+                                child: FractionallySizedBox(
+                                  widthFactor: 0.5,
+                                  child: ActionTabButton(
+                                    icon: LucideIcons.star,
+                                    onTap: _canSaveTemplate
+                                        ? _saveAsTemplate
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        onPressed: _items.isNotEmpty
+                            ? _popWithCurrentList
+                            : null,
+                        style: IconButton.styleFrom(
+                          backgroundColor: fillColor,
+                          foregroundColor: _items.isNotEmpty
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.38,
+                                ),
                         ),
+                        tooltip: 'Save',
+                        icon: const Icon(LucideIcons.check, size: 22),
                       ),
                     ],
                   ),
