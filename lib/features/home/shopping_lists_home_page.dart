@@ -12,9 +12,11 @@ import '../../models/shopping_list_item.dart';
 import '../../models/shopping_list_template.dart';
 import '../../models/stored_code.dart';
 import '../../repositories/list_repository.dart';
+import '../../services/recipe_service.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
+import '../recipes/recipes_page.dart';
 import '../settings/settings_page.dart';
 import '../stats/spending_stats_page.dart';
 import '../view_list/shopping_list_view_page.dart';
@@ -24,7 +26,7 @@ import '../wallet/qr_wallet_body.dart';
 
 const _uuid = Uuid();
 
-enum _Tab { home, history, wallet }
+enum _Tab { home, history, wallet, recipes }
 
 class ShoppingListsHomePage extends StatefulWidget {
   const ShoppingListsHomePage({super.key});
@@ -297,6 +299,31 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     );
     setState(() => _templates.add(template));
     _run(listRepository.saveTemplate(template));
+  }
+
+  Future<void> _createListFromRecipe(Recipe recipe) async {
+    final list = ShoppingList(
+      id: _uuid.v4(),
+      ownerId: Supabase.instance.client.auth.currentUser?.id,
+      date: DateTime.now(),
+      labels: [recipe.name],
+      items: recipe.ingredients
+          .map(
+            (ingredient) => ShoppingListItem(
+              id: _uuid.v4(),
+              name: ingredient.name,
+              quantity: ingredient.measure.isEmpty ? null : ingredient.measure,
+            ),
+          )
+          .toList(),
+    );
+    setState(() {
+      _tab = _Tab.home;
+      _upsertList(list);
+      _addLabel(recipe.name);
+    });
+    _run(listRepository.saveList(list));
+    _run(listRepository.saveLabels(_labelStore));
   }
 
   void _addLabel(String label) {
@@ -973,6 +1000,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       _Tab.home => 'Lista',
       _Tab.history => 'History',
       _Tab.wallet => 'Wallet',
+      _Tab.recipes => 'Recipes',
     };
 
     return Scaffold(
@@ -1000,11 +1028,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               tooltip: 'Statistics',
               onPressed: _openStats,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: _reloadData,
-          ),
+          if (_tab != _Tab.wallet && _tab != _Tab.recipes)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+              onPressed: _reloadData,
+            ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
@@ -1020,7 +1049,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           }
         },
         behavior: HitTestBehavior.translucent,
-        child: _tab == _Tab.wallet
+        child: _tab == _Tab.recipes
+            ? RecipesPage(onCreateList: _createListFromRecipe)
+            : _tab == _Tab.wallet
             ? QrWalletBody(
                 codes: _codes,
                 onView: _viewCode,
@@ -1371,11 +1402,20 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                         onTap: () => _selectTab(_Tab.wallet),
                       ),
                     ),
+                    Expanded(
+                      child: _buildHomeTab(
+                        context,
+                        icon: Icons.restaurant_menu,
+                        label: 'recipes',
+                        selected: _tab == _Tab.recipes,
+                        onTap: () => _selectTab(_Tab.recipes),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            if (_tab != _Tab.history)
+            if (_tab == _Tab.home || _tab == _Tab.wallet)
               Positioned(
                 right: 0,
                 bottom: _createButtonBottom,

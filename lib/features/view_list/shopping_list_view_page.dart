@@ -378,6 +378,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
             content: Text(
               e.code == 'no_audio'
                   ? 'No audio recorded — try speaking for longer'
+                  : e.code == 'too_quiet'
+                  ? 'No sound detected — speak louder'
                   : 'Could not reach the server — check your connection',
             ),
           ),

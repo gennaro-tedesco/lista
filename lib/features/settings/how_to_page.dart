@@ -19,7 +19,7 @@ class _HowToPageState extends State<HowToPage> {
     (
       title: 'Home',
       actions: [
-        'Tap Home, History, Wallet to switch tabs.',
+        'Tap Home, History, Wallet, Recipes to switch tabs.',
         'Tap + to create a new shopping list.',
         'Tap refresh to reload data.',
         'Tap settings to open the settings panel.',
@@ -48,6 +48,15 @@ class _HowToPageState extends State<HowToPage> {
         'Tap + to add a new code.',
         'Tap camera scan or gallery import.',
         'Tap confirm after naming the code to save it.',
+      ],
+    ),
+    (
+      title: 'Recipes',
+      actions: [
+        'Tap the category selector to choose a food category.',
+        'Tap the recipe selector to choose a recipe.',
+        'Tap + list to import recipe ingredients as a shopping list.',
+        'Tap close to dismiss the recipe popup.',
       ],
     ),
     (

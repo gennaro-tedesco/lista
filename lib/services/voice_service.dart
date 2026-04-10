@@ -8,7 +8,7 @@ import 'extraction_service.dart';
 export 'extraction_service.dart' show VoiceException, ExtractedItem;
 
 const _minAudioBytes = 2048;
-const _silenceThresholdDb = -40.0;
+const _silenceThresholdDb = -9.0;
 
 abstract final class VoiceService {
   static final _recorder = AudioRecorder();
@@ -46,8 +46,11 @@ abstract final class VoiceService {
     _tempPath = null;
     _maxAmplitude = double.negativeInfinity;
 
-    if (bytes.length < _minAudioBytes || maxAmp < _silenceThresholdDb) {
+    if (bytes.length < _minAudioBytes) {
       throw const VoiceException('no_audio');
+    }
+    if (maxAmp < _silenceThresholdDb) {
+      throw const VoiceException('too_quiet');
     }
     return ExtractionService.invokeExtractItems({'audio': base64Encode(bytes)});
   }

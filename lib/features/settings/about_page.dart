@@ -54,7 +54,13 @@ class _AboutPageState extends State<AboutPage> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('⚠️ Permission required'),
+          title: const Row(
+            children: [
+              Icon(LucideIcons.triangle_alert, size: 18),
+              SizedBox(width: 8),
+              Text('Permission required'),
+            ],
+          ),
           content: const Text(
             'Enable "Install unknown apps" for Lista in system settings, then try again.',
           ),
@@ -191,13 +197,19 @@ class _AboutPageState extends State<AboutPage> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(
+            LucideIcons.wifi_off,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
           Text(
-            '🚫 No connection',
+            'No connection',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Icon(
             LucideIcons.refresh_cw,
             size: 16,
@@ -207,18 +219,35 @@ class _AboutPageState extends State<AboutPage> {
       );
     }
     if (_updateInfo == null) {
-      return Text(
-        '✅ Up to date',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            LucideIcons.circle_check,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Up to date',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       );
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(
+          LucideIcons.circle_arrow_up,
+          size: 16,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
         Text(
-          '🚀 ${_updateInfo!.version}',
+          _updateInfo!.version,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
