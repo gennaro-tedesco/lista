@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 import '../../services/update_service.dart';
 import 'account_page.dart';
 import 'appearance_settings_page.dart';
@@ -30,18 +31,14 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isChecking = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not reach update server — check your connection')),
-      );
+      await _showUpdateDialog(error: true);
       return;
     }
     if (!mounted) return;
     setState(() => _isChecking = false);
 
     if (info == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You are up to date ($_appVersion)')),
-      );
+      await _showUpdateDialog(upToDate: true);
       return;
     }
 
@@ -49,53 +46,70 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) return;
 
     if (!canInstall) {
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Permission required'),
-          content: const Text(
-            'To install updates, enable "Install unknown apps" for Lista in system settings.',
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await UpdateService.openInstallSettings();
-              },
-              child: const Text('Open settings'),
-            ),
-          ],
-        ),
-      );
+      await _showUpdateDialog(permissionRequired: true);
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Update available'),
-        content: Text('Version ${info!.version} is available.\nDownload and install now?'),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Not now'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Install'),
-          ),
-        ],
-      ),
-    );
+    final confirmed = await _showUpdateDialog(info: info);
     if (confirmed != true || !mounted) return;
 
     await _downloadAndInstall(info.downloadUrl);
+  }
+
+  Future<bool?> _showUpdateDialog({
+    UpdateInfo? info,
+    bool upToDate = false,
+    bool permissionRequired = false,
+    bool error = false,
+  }) {
+    final String title;
+    final String content;
+    final bool showConfirm;
+
+    if (error) {
+      title = '🚫 No connection';
+      content = 'Could not reach update server';
+      showConfirm = false;
+    } else if (upToDate) {
+      title = '✅ Up to date';
+      content = 'You are up-to-date! ($_appVersion).';
+      showConfirm = false;
+    } else if (permissionRequired) {
+      title = '⚠️ Permission required';
+      content =
+          'Enable "Install unknown apps" for Lista in system settings, then try again.';
+      showConfirm = true;
+    } else {
+      title = '🚀 Update available';
+      content = 'Version ${info!.version} is available! Install now?';
+      showConfirm = true;
+    }
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            icon: const Icon(LucideIcons.x),
+          ),
+          if (showConfirm)
+            IconButton(
+              onPressed: () async {
+                Navigator.pop(ctx, true);
+                if (permissionRequired)
+                  await UpdateService.openInstallSettings();
+              },
+              icon: Icon(
+                permissionRequired ? LucideIcons.settings : LucideIcons.check,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _downloadAndInstall(String url) async {
@@ -138,7 +152,9 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download failed — check your connection')),
+        const SnackBar(
+          content: Text('Download failed — check your connection'),
+        ),
       );
       return;
     }

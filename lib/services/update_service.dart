@@ -22,8 +22,6 @@ abstract final class UpdateService {
   static String get currentVersion => _currentVersion;
 
   static Future<UpdateInfo?> checkForUpdate() async {
-    if (!isVersionedBuild) return null;
-
     final response = await Dio().get<Map<String, dynamic>>(
       'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest',
       options: Options(headers: {'Accept': 'application/vnd.github+json'}),
