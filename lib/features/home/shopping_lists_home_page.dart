@@ -1242,7 +1242,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
           alignment: Alignment.bottomCenter,
           clipBehavior: Clip.none,
           children: [
-            if (_tab != _Tab.wallet && _templates.isNotEmpty)
+            if (_tab == _Tab.home && _templates.isNotEmpty)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
@@ -1286,7 +1286,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                   ),
                 ),
               ),
-            if (_tab != _Tab.wallet && _templates.isNotEmpty)
+            if (_tab == _Tab.home && _templates.isNotEmpty)
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutBack,
@@ -1375,7 +1375,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
                 ),
               ),
             ),
-            Positioned(
+            if (_tab != _Tab.history)
+              Positioned(
               right: 0,
               bottom: _createButtonBottom,
               child: SizedBox(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
@@ -11,6 +12,7 @@ import '../../repositories/list_repository.dart';
 import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
+import '../../services/image_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
@@ -58,6 +60,7 @@ class _CreateListPageState extends State<CreateListPage>
   Timer? _scrollTimer;
   bool _isRecording = false;
   bool _isProcessing = false;
+  bool _isExtractingImage = false;
   static const _edgeScrollThreshold = 80.0;
   static const _edgeScrollSpeed = 400.0;
   static const _edgeScrollInterval = Duration(milliseconds: 16);
@@ -420,7 +423,9 @@ class _CreateListPageState extends State<CreateListPage>
         if (!mounted) return;
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not reach the server — check your connection')),
+          const SnackBar(
+            content: Text('Could not reach the server — check your connection'),
+          ),
         );
         return;
       }
@@ -429,12 +434,14 @@ class _CreateListPageState extends State<CreateListPage>
       if (extracted.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No shopping items recognised — try speaking more clearly'),
+            content: Text(
+              'No shopping items recognised — try speaking more clearly',
+            ),
           ),
         );
         return;
       }
-      final confirmed = await VoiceConfirmationSheet.show(context, extracted);
+      final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.voice);
       if (!mounted || confirmed == null) return;
       setState(() {
         for (final item in confirmed) {
@@ -447,6 +454,88 @@ class _CreateListPageState extends State<CreateListPage>
       if (!mounted) return;
       setState(() => _isRecording = true);
     }
+  }
+
+  Future<void> _extractItemsFromImage() async {
+    final useCamera = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Upload from gallery'),
+              onTap: () => Navigator.pop(context, false),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (useCamera == null || !mounted) return;
+    final picked = await ImagePicker().pickImage(
+      source: useCamera ? ImageSource.camera : ImageSource.gallery,
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _isExtractingImage = true);
+    List<ExtractedItem> extracted;
+    try {
+      extracted = await ImageService.extractFromImage(
+        await picked.readAsBytes(),
+        picked.mimeType ?? _mimeTypeForPath(picked.path),
+      );
+    } on VoiceException catch (e) {
+      if (!mounted) return;
+      setState(() => _isExtractingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not extract items from the image: ${e.code}'),
+        ),
+      );
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isExtractingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not extract items from the image — check your connection',
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _isExtractingImage = false);
+    if (extracted.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No shopping items recognised — try a clearer image'),
+        ),
+      );
+      return;
+    }
+    final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.image);
+    if (!mounted || confirmed == null) return;
+    setState(() {
+      for (final item in confirmed) {
+        _items.add(item.toItem());
+      }
+    });
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
+    return 'image/jpeg';
   }
 
   Future<void> _saveAsTemplate() async {
@@ -783,252 +872,293 @@ class _CreateListPageState extends State<CreateListPage>
           child: Stack(
             children: [
               SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Scrollbar(
-                        controller: _scrollController,
-                        thumbVisibility: true,
-                        child: ListView(
-                          controller: _scrollController,
-                          children: [
-                            const SizedBox(height: 41),
-                            if (_items.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              for (final entry in groupedItems(_items).entries)
-                                CategorySection(
-                                  category: entry.key,
-                                  items: entry.value,
-                                  isCollapsed: _collapsedCategories.contains(
-                                    entry.key,
-                                  ),
-                                  onToggleCollapse: () =>
-                                      _toggleCollapse(entry.key),
-                                  onAdd: () => _showAddItemPopup(entry.key),
-                                  itemBuilder: (ctx, item) => _buildItemRow(
-                                    ctx,
-                                    item,
-                                    category: entry.key,
-                                    withHandle: true,
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                            ] else ...[
-                              const SizedBox(height: 32),
-                              SizedBox(
-                                height: MediaQuery.sizeOf(context).height * 0.5,
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final width = constraints.maxWidth - 48;
-                                    final height = constraints.maxHeight - 48;
-                                    return AnimatedBuilder(
-                                      animation: _fishController,
-                                      builder: (context, child) {
-                                        final progress = _fishController.value;
-                                        final leadOpacity = _windowOpacity(
-                                          progress,
-                                          start: 0.0,
-                                          end: 0.62,
-                                        );
-                                        final followOpacity = _windowOpacity(
-                                          progress,
-                                          start: 0.18,
-                                          end: 0.8,
-                                        );
-                                        return Stack(
-                                          children: [
-                                            Positioned(
-                                              left:
-                                                  24 +
-                                                  (_fishPosition.dx * width),
-                                              top:
-                                                  24 +
-                                                  (_fishPosition.dy * height),
-                                              child: Opacity(
-                                                opacity: _fishStartsFirst
-                                                    ? leadOpacity
-                                                    : followOpacity,
-                                                child: Text(
-                                                  '🐟',
-                                                  style: theme
-                                                      .textTheme
-                                                      .displayMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            child: ListView(
+                              controller: _scrollController,
+                              children: [
+                                const SizedBox(height: 41),
+                                if (_items.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  for (final entry in groupedItems(
+                                    _items,
+                                  ).entries)
+                                    CategorySection(
+                                      category: entry.key,
+                                      items: entry.value,
+                                      isCollapsed: _collapsedCategories
+                                          .contains(entry.key),
+                                      onToggleCollapse: () =>
+                                          _toggleCollapse(entry.key),
+                                      onAdd: () => _showAddItemPopup(entry.key),
+                                      itemBuilder: (ctx, item) => _buildItemRow(
+                                        ctx,
+                                        item,
+                                        category: entry.key,
+                                        withHandle: true,
+                                      ),
+                                    ),
+                                  const SizedBox(height: 8),
+                                ] else ...[
+                                  const SizedBox(height: 32),
+                                  SizedBox(
+                                    height:
+                                        MediaQuery.sizeOf(context).height * 0.5,
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final width = constraints.maxWidth - 48;
+                                        final height =
+                                            constraints.maxHeight - 48;
+                                        return AnimatedBuilder(
+                                          animation: _fishController,
+                                          builder: (context, child) {
+                                            final progress =
+                                                _fishController.value;
+                                            final leadOpacity = _windowOpacity(
+                                              progress,
+                                              start: 0.0,
+                                              end: 0.62,
+                                            );
+                                            final followOpacity =
+                                                _windowOpacity(
+                                                  progress,
+                                                  start: 0.18,
+                                                  end: 0.8,
+                                                );
+                                            return Stack(
+                                              children: [
+                                                Positioned(
+                                                  left:
+                                                      24 +
+                                                      (_fishPosition.dx *
+                                                          width),
+                                                  top:
+                                                      24 +
+                                                      (_fishPosition.dy *
+                                                          height),
+                                                  child: Opacity(
+                                                    opacity: _fishStartsFirst
+                                                        ? leadOpacity
+                                                        : followOpacity,
+                                                    child: Text(
+                                                      '🐟',
+                                                      style: theme
+                                                          .textTheme
+                                                          .displayMedium,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              left:
-                                                  24 +
-                                                  (_penguinPosition.dx * width),
-                                              top:
-                                                  24 +
-                                                  (_penguinPosition.dy *
-                                                      height),
-                                              child: Opacity(
-                                                opacity: _fishStartsFirst
-                                                    ? followOpacity
-                                                    : leadOpacity,
-                                                child: Text(
-                                                  '🐧',
-                                                  style: theme
-                                                      .textTheme
-                                                      .displayMedium,
+                                                Positioned(
+                                                  left:
+                                                      24 +
+                                                      (_penguinPosition.dx *
+                                                          width),
+                                                  top:
+                                                      24 +
+                                                      (_penguinPosition.dy *
+                                                          height),
+                                                  child: Opacity(
+                                                    opacity: _fishStartsFirst
+                                                        ? followOpacity
+                                                        : leadOpacity,
+                                                    child: Text(
+                                                      '🐧',
+                                                      style: theme
+                                                          .textTheme
+                                                          .displayMedium,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
+                                              ],
+                                            );
+                                          },
                                         );
                                       },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: _edgeScrollThreshold,
-                        child: DragTarget<_DraggedItem>(
-                          onWillAcceptWithDetails: (_) => true,
-                          onMove: (_) => _startScroll(-1),
-                          onLeave: (_) => _stopEdgeScroll(),
-                          builder: (context, c, r) => const SizedBox.expand(),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: _edgeScrollThreshold,
-                        child: DragTarget<_DraggedItem>(
-                          onWillAcceptWithDetails: (_) => true,
-                          onMove: (_) => _startScroll(1),
-                          onLeave: (_) => _stopEdgeScroll(),
-                          builder: (context, c, r) => const SizedBox.expand(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (authStateNotifier.value) ...[
-                        IconButton.filled(
-                          onPressed: _isProcessing ? null : _toggleRecording,
-                          style: IconButton.styleFrom(
-                            backgroundColor: fillColor,
-                            foregroundColor: _isRecording
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.onSurface,
-                          ),
-                          tooltip: 'Voice input',
-                          icon: _isProcessing
-                              ? SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                )
-                              : const Icon(LucideIcons.mic, size: 22),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      IconButton.filled(
-                        onPressed: () => _showAddItemPopup(),
-                        style: IconButton.styleFrom(
-                          backgroundColor: fillColor,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Add item',
-                        icon: const Icon(Icons.add, size: 22),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      IconButton.filled(
-                        onPressed: _showBackConfirmation,
-                        style: IconButton.styleFrom(
-                          backgroundColor: fillColor,
-                          foregroundColor: theme.colorScheme.onSurface,
-                        ),
-                        tooltip: 'Back',
-                        icon: const Icon(LucideIcons.chevron_left, size: 22),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: authStateNotifier.value
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: ActionTabButton(
-                                      icon: LucideIcons.star,
-                                      onTap: _canSaveTemplate
-                                          ? _saveAsTemplate
-                                          : null,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ActionTabButton(
-                                      icon: Icons.person_add_outlined,
-                                      onTap: _items.isNotEmpty
-                                          ? _shareCurrentList
-                                          : null,
                                     ),
                                   ),
                                 ],
-                              )
-                            : Center(
-                                child: FractionallySizedBox(
-                                  widthFactor: 0.5,
-                                  child: ActionTabButton(
-                                    icon: LucideIcons.star,
-                                    onTap: _canSaveTemplate
-                                        ? _saveAsTemplate
-                                        : null,
-                                  ),
-                                ),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: _edgeScrollThreshold,
+                            child: DragTarget<_DraggedItem>(
+                              onWillAcceptWithDetails: (_) => true,
+                              onMove: (_) => _startScroll(-1),
+                              onLeave: (_) => _stopEdgeScroll(),
+                              builder: (context, c, r) =>
+                                  const SizedBox.expand(),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: _edgeScrollThreshold,
+                            child: DragTarget<_DraggedItem>(
+                              onWillAcceptWithDetails: (_) => true,
+                              onMove: (_) => _startScroll(1),
+                              onLeave: (_) => _stopEdgeScroll(),
+                              builder: (context, c, r) =>
+                                  const SizedBox.expand(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (authStateNotifier.value) ...[
+                            IconButton.filled(
+                              onPressed: _isProcessing || _isExtractingImage
+                                  ? null
+                                  : _toggleRecording,
+                              style: IconButton.styleFrom(
+                                backgroundColor: fillColor,
+                                foregroundColor: _isRecording
+                                    ? theme.colorScheme.error
+                                    : theme.colorScheme.onSurface,
                               ),
+                              tooltip: 'Voice input',
+                              icon: _isProcessing
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    )
+                                  : const Icon(LucideIcons.mic, size: 22),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              onPressed: _isProcessing || _isExtractingImage
+                                  ? null
+                                  : _extractItemsFromImage,
+                              style: IconButton.styleFrom(
+                                backgroundColor: fillColor,
+                                foregroundColor: theme.colorScheme.onSurface,
+                              ),
+                              tooltip: 'Image input',
+                              icon: _isExtractingImage
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    )
+                                  : const Icon(LucideIcons.image, size: 22),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          IconButton.filled(
+                            onPressed: () => _showAddItemPopup(),
+                            style: IconButton.styleFrom(
+                              backgroundColor: fillColor,
+                              foregroundColor: theme.colorScheme.onSurface,
+                            ),
+                            tooltip: 'Add item',
+                            icon: const Icon(Icons.add, size: 22),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        onPressed: _items.isNotEmpty
-                            ? _popWithCurrentList
-                            : null,
-                        style: IconButton.styleFrom(
-                          backgroundColor: fillColor,
-                          foregroundColor: _items.isNotEmpty
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.38,
-                                ),
-                        ),
-                        tooltip: 'Save',
-                        icon: const Icon(LucideIcons.check, size: 22),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          IconButton.filled(
+                            onPressed: _showBackConfirmation,
+                            style: IconButton.styleFrom(
+                              backgroundColor: fillColor,
+                              foregroundColor: theme.colorScheme.onSurface,
+                            ),
+                            tooltip: 'Back',
+                            icon: const Icon(
+                              LucideIcons.chevron_left,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: authStateNotifier.value
+                                ? Row(
+                                    children: [
+                                      Expanded(
+                                        child: ActionTabButton(
+                                          icon: LucideIcons.star,
+                                          onTap: _canSaveTemplate
+                                              ? _saveAsTemplate
+                                              : null,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: ActionTabButton(
+                                          icon: Icons.person_add_outlined,
+                                          onTap: _items.isNotEmpty
+                                              ? _shareCurrentList
+                                              : null,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Center(
+                                    child: FractionallySizedBox(
+                                      widthFactor: 0.5,
+                                      child: ActionTabButton(
+                                        icon: LucideIcons.star,
+                                        onTap: _canSaveTemplate
+                                            ? _saveAsTemplate
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton.filled(
+                            onPressed: _items.isNotEmpty
+                                ? _popWithCurrentList
+                                : null,
+                            style: IconButton.styleFrom(
+                              backgroundColor: fillColor,
+                              foregroundColor: _items.isNotEmpty
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.38,
+                                    ),
+                            ),
+                            tooltip: 'Save',
+                            icon: const Icon(LucideIcons.check, size: 22),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-              if (_isRecording) Positioned.fill(child: RecordingOverlay(onTap: _toggleRecording)),
+              ),
+              if (_isRecording)
+                Positioned.fill(
+                  child: RecordingOverlay(onTap: _toggleRecording),
+                ),
             ],
           ),
         ),

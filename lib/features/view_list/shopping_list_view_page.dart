@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/food_suggestion.dart';
@@ -22,6 +23,7 @@ import '../../widgets/shopping_list_item_tile.dart';
 import '../../widgets/recording_overlay.dart';
 import '../../widgets/template_saved_toast.dart';
 import '../../widgets/voice_confirmation_sheet.dart';
+import '../../services/image_service.dart';
 import '../../services/voice_service.dart';
 
 const _uuid = Uuid();
@@ -76,6 +78,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool _refreshAfterSave = false;
   bool _isRecording = false;
   bool _isProcessing = false;
+  bool _isExtractingImage = false;
 
   @override
   void initState() {
@@ -402,7 +405,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
         );
         return;
       }
-      final confirmed = await VoiceConfirmationSheet.show(context, extracted);
+      final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.voice);
       if (!mounted || confirmed == null) return;
       setState(() {
         for (final item in confirmed) {
@@ -416,6 +419,89 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       if (!mounted) return;
       setState(() => _isRecording = true);
     }
+  }
+
+  Future<void> _extractItemsFromImage() async {
+    final useCamera = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.camera),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.image),
+              title: const Text('Upload from gallery'),
+              onTap: () => Navigator.pop(context, false),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (useCamera == null || !mounted) return;
+    final picked = await ImagePicker().pickImage(
+      source: useCamera ? ImageSource.camera : ImageSource.gallery,
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _isExtractingImage = true);
+    List<ExtractedItem> extracted;
+    try {
+      extracted = await ImageService.extractFromImage(
+        await picked.readAsBytes(),
+        picked.mimeType ?? _mimeTypeForPath(picked.path),
+      );
+    } on VoiceException catch (e) {
+      if (!mounted) return;
+      setState(() => _isExtractingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not extract items from the image: ${e.code}'),
+        ),
+      );
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isExtractingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not extract items from the image — check your connection',
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _isExtractingImage = false);
+    if (extracted.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No shopping items recognised — try a clearer image'),
+        ),
+      );
+      return;
+    }
+    final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.image);
+    if (!mounted || confirmed == null) return;
+    setState(() {
+      for (final item in confirmed) {
+        widget.list.items.add(item.toItem());
+      }
+    });
+    unawaited(_queueSave());
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
+    return 'image/jpeg';
   }
 
   Future<void> _pickDate() async {
@@ -1103,7 +1189,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                         const Spacer(),
                         if (authStateNotifier.value) ...[
                           IconButton.filled(
-                            onPressed: _isProcessing ? null : _toggleRecording,
+                            onPressed: _isProcessing || _isExtractingImage
+                                ? null
+                                : _toggleRecording,
                             style: IconButton.styleFrom(
                               backgroundColor: fillColor,
                               foregroundColor: _isRecording
@@ -1121,6 +1209,27 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                                     ),
                                   )
                                 : const Icon(LucideIcons.mic, size: 22),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton.filled(
+                            onPressed: _isProcessing || _isExtractingImage
+                                ? null
+                                : _extractItemsFromImage,
+                            style: IconButton.styleFrom(
+                              backgroundColor: fillColor,
+                              foregroundColor: theme.colorScheme.onSurface,
+                            ),
+                            tooltip: 'Image input',
+                            icon: _isExtractingImage
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : const Icon(LucideIcons.image, size: 22),
                           ),
                           const SizedBox(width: 8),
                         ],

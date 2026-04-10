@@ -36,37 +36,37 @@ class _RecordingOverlayState extends State<RecordingOverlay>
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: ColoredBox(
-      color: theme.scaffoldBackgroundColor.withValues(alpha: 0.6),
-      child: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            return SizedBox(
-              width: 180,
-              height: 180,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  for (int i = 0; i < 3; i++) _buildRing(theme, i),
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.error,
+        color: theme.scaffoldBackgroundColor.withValues(alpha: 0.6),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return SizedBox(
+                width: 180,
+                height: 180,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    for (int i = 0; i < 3; i++) _buildRing(theme, i),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.error,
+                      ),
+                      child: Icon(
+                        LucideIcons.mic,
+                        color: theme.colorScheme.onError,
+                        size: 24,
+                      ),
                     ),
-                    child: Icon(
-                      LucideIcons.mic,
-                      color: theme.colorScheme.onError,
-                      size: 24,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-      ),
       ),
     );
   }

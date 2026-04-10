@@ -12,7 +12,7 @@ class CenteredPopupShell extends StatelessWidget {
       width: 320,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
+        color: theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(28),
       ),
       child: child,

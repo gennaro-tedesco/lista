@@ -132,14 +132,6 @@ class _DateSelectorFieldState extends State<DateSelectorField> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 6),
-              Icon(
-                _overlay != null
-                    ? LucideIcons.chevron_up
-                    : LucideIcons.chevron_down,
-                size: 11,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
             ],
           ),
         ),

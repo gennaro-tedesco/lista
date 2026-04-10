@@ -20,6 +20,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
   late DateTime _startDate;
   late String? _selectedCurrency;
   GroupBy _groupBy = GroupBy.none;
+  final _currencyKey = GlobalKey();
 
   List<String> get _currencies {
     final values =
@@ -294,6 +295,30 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     );
   }
 
+  Future<void> _openCurrencyMenu() async {
+    final renderBox =
+        _currencyKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final topLeft = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        topLeft.dy + renderBox.size.height + 4,
+        overlay.size.width - topLeft.dx - renderBox.size.width,
+        overlay.size.height - topLeft.dy,
+      ),
+      constraints: BoxConstraints(minWidth: renderBox.size.width),
+      items: _currencies
+          .map((c) => PopupMenuItem<String>(value: c, child: Text(c)))
+          .toList(),
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedCurrency = selected);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -345,45 +370,49 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
                       width: labelWidth,
                       child: Text('From', style: labelStyle),
                     ),
-                    Expanded(
-                      child: DateSelectorField(
-                        selectedDate: _startDate,
-                        onDateSelected: (value) =>
-                            setState(() => _startDate = value),
-                      ),
+                    DateSelectorField(
+                      selectedDate: _startDate,
+                      onDateSelected: (value) =>
+                          setState(() => _startDate = value),
                     ),
+                    const Spacer(),
                     if (currencies.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      DropdownMenu<String>(
-                        initialSelection: selectedCurrency,
-                        onSelected: (value) {
-                          if (value != null) {
-                            setState(() => _selectedCurrency = value);
-                          }
-                        },
-                        width: 96,
-                        inputDecorationTheme: InputDecorationTheme(
-                          filled: true,
-                          fillColor: fillColor,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(999),
-                            borderSide: BorderSide.none,
+                      SizedBox(
+                        width: 62,
+                        child: InkWell(
+                          key: _currencyKey,
+                          onTap: _openCurrencyMenu,
+                          borderRadius: BorderRadius.circular(999),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: fillColor,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    currentCurrency,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Icon(
+                                    LucideIcons.chevron_down,
+                                    size: 11,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        dropdownMenuEntries: currencies
-                            .map(
-                              (c) =>
-                                  DropdownMenuEntry<String>(value: c, label: c),
-                            )
-                            .toList(),
                       ),
                     ],
                   ],

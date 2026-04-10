@@ -6,6 +6,7 @@ export type RawItem = {
 
 export interface VoiceProvider {
   extractItems(audioBase64: string): Promise<RawItem[]>
+  extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]>
 }
 
 const _extractionPrompt = [
@@ -16,6 +17,16 @@ const _extractionPrompt = [
   '- quantity: number (integer or decimal), null if unspecified',
   '- unit: normalised (g, kg, l, ml, bottles, pieces, etc.), null if unspecified',
   '- split compound mentions into individual items',
+].join('\n')
+
+const _imageExtractionPrompt = [
+  'Extract shopping items visible in the image.',
+  'Return JSON: {"items": [{"name": string, "quantity": number | null, "unit": string | null}]}',
+  'Rules:',
+  '- name: lowercase singular noun',
+  '- quantity: number (integer or decimal), null if unspecified',
+  '- unit: normalised (g, kg, l, ml, bottles, pieces, etc.), null if unspecified',
+  '- ignore prices, totals, store names, and non-shopping text',
 ].join('\n')
 
 function _parseItems(content: string): RawItem[] {
@@ -50,6 +61,10 @@ export class OpenAIProvider implements VoiceProvider {
     const transcript = await this._transcribe(audioBase64)
     if (!transcript.trim()) return []
     return this._extract(transcript)
+  }
+
+  async extractItemsFromImage(_imageBase64: string, _mimeType: string): Promise<RawItem[]> {
+    throw new Error('unsupported_provider')
   }
 
   private async _transcribe(audioBase64: string): Promise<string> {
@@ -103,6 +118,18 @@ export class GoogleProvider implements VoiceProvider {
   constructor(private readonly cfg: GoogleConfig) {}
 
   async extractItems(audioBase64: string): Promise<RawItem[]> {
+    return this._extractWithInlineData(audioBase64, 'audio/mp4', _extractionPrompt)
+  }
+
+  async extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]> {
+    return this._extractWithInlineData(imageBase64, mimeType, _imageExtractionPrompt)
+  }
+
+  private async _extractWithInlineData(
+    dataBase64: string,
+    mimeType: string,
+    prompt: string,
+  ): Promise<RawItem[]> {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.cfg.model}:generateContent?key=${this.cfg.apiKey}`,
       {
@@ -114,11 +141,11 @@ export class GoogleProvider implements VoiceProvider {
               parts: [
                 {
                   inline_data: {
-                    mime_type: 'audio/mp4',
-                    data: audioBase64,
+                    mime_type: mimeType,
+                    data: dataBase64,
                   },
                 },
-                { text: _extractionPrompt },
+                { text: prompt },
               ],
             },
           ],

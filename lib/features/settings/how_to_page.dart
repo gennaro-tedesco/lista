@@ -23,7 +23,6 @@ class _HowToPageState extends State<HowToPage> {
         'Tap + to create a new shopping list.',
         'Tap refresh to reload data.',
         'Tap settings to open the settings panel.',
-        'Tap stats to open spending statistics.',
         'Tap a list card to open it.',
         'Long press a list card to edit labels.',
         'Swipe left to right to complete a list.',
@@ -38,6 +37,7 @@ class _HowToPageState extends State<HowToPage> {
         'Swipe right to left to delete a completed list if you are the owner.',
         'Tap a completed list to open it.',
         'Long press a completed list to edit labels.',
+        'Tap the stats icon to open spending statistics.',
       ],
     ),
     (
@@ -63,6 +63,7 @@ class _HowToPageState extends State<HowToPage> {
         'Tap the category add action to add directly into that category.',
         'Tap the star action to save as template when enabled.',
         'Tap the microphone to start voice input; tap again to stop and extract items.',
+        'Tap the camera to extract items from an image; choose to take a photo or upload from gallery.',
         'Tap the share action to share the draft when enabled.',
         'Tap the back button to return; confirm save or discard if items exist.',
         'Tap the checkmark to save the list immediately.',
@@ -73,6 +74,7 @@ class _HowToPageState extends State<HowToPage> {
       actions: [
         'Tap + to open the add-item popup.',
         'Tap the microphone to start voice input; tap again to stop and extract items.',
+        'Tap the camera to extract items from an image; choose to take a photo or upload from gallery.',
         'Tap an item checkbox to toggle completion.',
         'Tap an item name to edit it.',
         'Swipe an item right to left to delete it.',

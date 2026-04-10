@@ -134,7 +134,7 @@ class _EditItemDialogState extends State<EditItemDialog> {
                     backgroundColor: fillColor,
                     foregroundColor: theme.colorScheme.onSurface,
                   ),
-                  icon: const Icon(LucideIcons.chevron_left, size: 22),
+                  icon: const Icon(LucideIcons.x, size: 22),
                 ),
                 const Spacer(),
                 IconButton.filled(

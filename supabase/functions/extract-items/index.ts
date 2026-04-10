@@ -16,12 +16,19 @@ serve(async (req: Request) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return reply({ error: 'unauthorized' }, 401)
 
-  const { audio: audioBase64 } = await req.json()
-  if (!audioBase64) return reply({ error: 'empty_audio' }, 400)
-  if (audioBase64.length > MAX_BYTES) return reply({ error: 'payload_too_large' }, 413)
+  const { audio: audioBase64, image: imageBase64, mimeType } = await req.json()
+  if (!audioBase64 && !imageBase64) return reply({ error: 'empty_input' }, 400)
+  if (audioBase64 && audioBase64.length > MAX_BYTES) {
+    return reply({ error: 'payload_too_large' }, 413)
+  }
+  if (imageBase64 && imageBase64.length > MAX_BYTES) {
+    return reply({ error: 'payload_too_large' }, 413)
+  }
 
   try {
-    const items = await provider.extractItems(audioBase64)
+    const items = imageBase64
+      ? await provider.extractItemsFromImage(imageBase64, mimeType ?? 'image/jpeg')
+      : await provider.extractItems(audioBase64)
     return reply({ items })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown_error'
