@@ -4,15 +4,24 @@ import 'account_page.dart';
 import 'appearance_settings_page.dart';
 import 'how_to_page.dart';
 
-const _appVersion = String.fromEnvironment('APP_VERSION', defaultValue: 'dev');
-
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
   static const _tileDensity = VisualDensity(vertical: -3.5);
 
   void _openSubpage(BuildContext context, Widget page) {
-    Navigator.of(context).pop();
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: (details) {
+            if ((details.primaryVelocity ?? 0) > 300) {
+              Navigator.of(context).pop();
+            }
+          },
+          child: page,
+        ),
+      ),
+    );
   }
 
   @override
@@ -62,19 +71,7 @@ class SettingsPage extends StatelessWidget {
               child: ListTile(
                 visualDensity: _tileDensity,
                 title: const Text('About'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _appVersion,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
+                trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openSubpage(context, const AboutPage()),
               ),
             ),
