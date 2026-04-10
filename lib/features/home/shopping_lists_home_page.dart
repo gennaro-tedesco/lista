@@ -160,22 +160,14 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final nextLabelColorMap = <String, Color>{};
     var nextLabelCounter = 0;
 
-    void addLabel(String label) {
+    for (final label in labels) {
       if (!nextLabelStore.contains(label)) {
         nextLabelColorMap[label] =
+            _labelColorMap[label] ??
             _labelColors[nextLabelCounter % _labelColors.length];
         nextLabelStore.add(label);
         nextLabelCounter++;
       }
-    }
-
-    for (final list in lists) {
-      for (final label in list.labels) {
-        addLabel(label);
-      }
-    }
-    for (final label in labels) {
-      addLabel(label);
     }
 
     setState(() {
@@ -218,16 +210,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   }
 
   List<ShoppingList> get _activeLists =>
-      (_lists.where((list) => !list.isCompleted).toList()..sort((a, b) {
-        final d = b.date.compareTo(a.date);
-        return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
-      }));
+      _lists.where((list) => !list.isCompleted).toList();
 
   List<ShoppingList> get _completedLists =>
-      (_lists.where((list) => list.isCompleted).toList()..sort((a, b) {
-        final d = b.date.compareTo(a.date);
-        return d != 0 ? d : b.createdAt.compareTo(a.createdAt);
-      }));
+      _lists.where((list) => list.isCompleted).toList();
 
   Future<void> _openCreateList() async {
     setState(() => _isCreateMenuOpen = false);
@@ -320,10 +306,8 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     setState(() {
       _tab = _Tab.home;
       _upsertList(list);
-      _addLabel(recipe.name);
     });
     _run(listRepository.saveList(list));
-    _run(listRepository.saveLabels(_labelStore));
   }
 
   void _addLabel(String label) {
@@ -334,7 +318,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     }
   }
 
-  Color _labelColor(String label) => _labelColorMap[label] ?? _labelColors[0];
+  Color _labelColor(String label) =>
+      _labelColorMap[label] ??
+      _labelColors[label.hashCode.abs() % _labelColors.length];
 
   Widget _buildListCard(BuildContext context, ShoppingList list) {
     final theme = Theme.of(context);
@@ -742,17 +728,12 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   Future<void> _editLabels(ShoppingList list) async {
     bool labelDeleted = false;
-    for (final l in _lists) {
-      for (final label in l.labels) {
-        _addLabel(label);
-      }
-    }
     final previousLabels = List<String>.from(list.labels);
     await showDialog<void>(
       context: context,
       builder: (_) => _EditLabelsDialog(
         availableLabels: _labelStore,
-        selectedLabels: list.labels,
+        selectedLabels: list.labels.where(_labelStore.contains).toList(),
         colorForLabel: _labelColor,
         onChanged: (labels) {
           setState(() {

@@ -72,7 +72,6 @@ class SupabaseListRepository implements ListRepository {
     final data = await _client
         .from('shopping_lists')
         .select('owner_id, *, shopping_list_items(*)')
-        .order('date', ascending: false)
         .order('created_at', ascending: false);
     return data.map(_listFromRow).toList();
   }

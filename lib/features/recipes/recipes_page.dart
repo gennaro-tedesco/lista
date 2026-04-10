@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/recipe_service.dart';
 
@@ -27,6 +28,9 @@ class _RecipesPageState extends State<RecipesPage> {
   bool _loadingRecipes = false;
   bool _loadingRecipe = false;
   final ScrollController _recipeScrollController = ScrollController();
+  final GlobalKey _categoryKey = GlobalKey();
+  final GlobalKey _recipeKey = GlobalKey();
+  OverlayEntry? _menuOverlay;
 
   @override
   void initState() {
@@ -36,6 +40,7 @@ class _RecipesPageState extends State<RecipesPage> {
 
   @override
   void dispose() {
+    _menuOverlay?.remove();
     _recipeScrollController.dispose();
     super.dispose();
   }
@@ -114,6 +119,93 @@ class _RecipesPageState extends State<RecipesPage> {
     if (id == null) return;
     setState(() => _selectedRecipeId = id);
     _loadRecipe(id);
+  }
+
+  Future<T?> _openMenu<T>(
+    GlobalKey key,
+    List<({T value, String label})> items,
+  ) {
+    final renderBox = key.currentContext?.findRenderObject();
+    if (renderBox is! RenderBox) return Future.value(null);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final topLeft = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
+    final top = topLeft.dy + renderBox.size.height;
+    final left = topLeft.dx;
+    final width = renderBox.size.width;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.48;
+    final completer = Completer<T?>();
+    final scrollController = ScrollController();
+
+    void close(T? value) {
+      _menuOverlay?.remove();
+      _menuOverlay = null;
+      if (!completer.isCompleted) completer.complete(value);
+    }
+
+    _menuOverlay?.remove();
+    _menuOverlay = OverlayEntry(
+      builder: (_) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => close(null),
+        child: Stack(
+          children: [
+            Positioned(
+              top: top,
+              left: left,
+              width: width,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(4),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: Scrollbar(
+                    controller: scrollController,
+                    thumbVisibility: true,
+                    child: ListView(
+                      controller: scrollController,
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: items
+                          .map(
+                            (item) => InkWell(
+                              onTap: () => close(item.value),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Text(item.label),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_menuOverlay!);
+    return completer.future;
+  }
+
+  Future<void> _openCategoryMenu() async {
+    final selected = await _openMenu<String>(
+      _categoryKey,
+      _categories.map((c) => (value: c.name, label: c.name)).toList(),
+    );
+    _selectCategory(selected);
+  }
+
+  Future<void> _openRecipeMenu() async {
+    final selected = await _openMenu<String>(
+      _recipeKey,
+      _recipes.map((r) => (value: r.id, label: r.name)).toList(),
+    );
+    _selectRecipe(selected);
   }
 
   Widget _buildCreateListButton(
@@ -258,7 +350,14 @@ class _RecipesPageState extends State<RecipesPage> {
         (theme.inputDecorationTheme.hintStyle ?? const TextStyle()).copyWith(
           color: theme.inputDecorationTheme.hintStyle?.color ?? theme.hintColor,
         );
-    final menuMaxHeight = MediaQuery.sizeOf(context).height * 0.6;
+    final categoryEnabled =
+        !_loadingCategories && _categoryError == null && _categories.isNotEmpty;
+    final recipeEnabled =
+        _selectedCategory != null &&
+        !_loadingRecipes &&
+        !_loadingRecipe &&
+        _recipeError == null &&
+        _recipes.isNotEmpty;
     final selectedRecipe = _selectedRecipe;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 128),
@@ -266,37 +365,26 @@ class _RecipesPageState extends State<RecipesPage> {
         children: [
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedCategory,
-                      isExpanded: true,
-                      menuMaxHeight: menuMaxHeight,
-                      hint: Text('Select category', style: hintStyle),
-                      disabledHint: Text('Select category', style: hintStyle),
-                      decoration: const InputDecoration(),
-                      items: _categories
-                          .map(
-                            (category) => DropdownMenuItem<String>(
-                              value: category.name,
-                              child: Text(
-                                category.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged:
-                          _loadingCategories ||
-                              _categoryError != null ||
-                              _categories.isEmpty
-                          ? null
-                          : _selectCategory,
-                    ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                key: _categoryKey,
+                onTap: categoryEnabled ? _openCategoryMenu : null,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: InputDecoration(enabled: categoryEnabled),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedCategory ?? 'Select category',
+                          style: _selectedCategory != null ? null : hintStyle,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -313,39 +401,32 @@ class _RecipesPageState extends State<RecipesPage> {
           const SizedBox(height: 16),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedRecipeId,
-                      isExpanded: true,
-                      menuMaxHeight: menuMaxHeight,
-                      hint: Text('Select recipe', style: hintStyle),
-                      disabledHint: Text('Select recipe', style: hintStyle),
-                      decoration: const InputDecoration(),
-                      items: _recipes
-                          .map(
-                            (recipe) => DropdownMenuItem<String>(
-                              value: recipe.id,
-                              child: Text(
-                                recipe.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged:
-                          _selectedCategory == null ||
-                              _loadingRecipes ||
-                              _loadingRecipe ||
-                              _recipeError != null ||
-                              _recipes.isEmpty
-                          ? null
-                          : _selectRecipe,
-                    ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                key: _recipeKey,
+                onTap: recipeEnabled ? _openRecipeMenu : null,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: InputDecoration(enabled: recipeEnabled),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _selectedRecipeId != null
+                              ? (_recipes
+                                        .where((r) => r.id == _selectedRecipeId)
+                                        .firstOrNull
+                                        ?.name ??
+                                    'Select recipe')
+                              : 'Select recipe',
+                          style: _selectedRecipeId != null ? null : hintStyle,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
