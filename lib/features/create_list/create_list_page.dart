@@ -441,7 +441,11 @@ class _CreateListPageState extends State<CreateListPage>
         );
         return;
       }
-      final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.voice);
+      final confirmed = await VoiceConfirmationSheet.show(
+        context,
+        extracted,
+        source: ExtractionSource.voice,
+      );
       if (!mounted || confirmed == null) return;
       setState(() {
         for (final item in confirmed) {
@@ -520,7 +524,11 @@ class _CreateListPageState extends State<CreateListPage>
       );
       return;
     }
-    final confirmed = await VoiceConfirmationSheet.show(context, extracted, source: ExtractionSource.image);
+    final confirmed = await VoiceConfirmationSheet.show(
+      context,
+      extracted,
+      source: ExtractionSource.image,
+    );
     if (!mounted || confirmed == null) return;
     setState(() {
       for (final item in confirmed) {

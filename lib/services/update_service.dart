@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pub_semver/pub_semver.dart';
 
 const _githubOwner = 'gennaro-tedesco';
 const _githubRepo = 'lista';
@@ -29,13 +30,23 @@ abstract final class UpdateService {
 
     final data = response.data!;
     final latestTag = data['tag_name'] as String? ?? '';
-    if (latestTag.isEmpty || latestTag == _currentVersion) return null;
+    if (latestTag.isEmpty) return null;
+    try {
+      final current = Version.parse(_currentVersion.replaceFirst('v', ''));
+      final latest = Version.parse(latestTag.replaceFirst('v', ''));
+      if (latest <= current) return null;
+    } on FormatException {
+      // non-semver build (e.g. git hash) — always offer the update
+    }
 
     final assets = (data['assets'] as List<dynamic>? ?? [])
         .cast<Map<String, dynamic>>();
-    final apk = assets.where((a) => (a['name'] as String).endsWith('.apk')).firstOrNull;
+    final apk = assets
+        .where((a) => (a['name'] as String).endsWith('.apk'))
+        .firstOrNull;
     final downloadUrl = apk?['browser_download_url'] as String?;
-    if (downloadUrl == null) throw Exception('No APK asset found in release $latestTag');
+    if (downloadUrl == null)
+      throw Exception('No APK asset found in release $latestTag');
 
     return UpdateInfo(version: latestTag, downloadUrl: downloadUrl);
   }

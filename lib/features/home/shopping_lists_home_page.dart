@@ -1377,66 +1377,66 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
             ),
             if (_tab != _Tab.history)
               Positioned(
-              right: 0,
-              bottom: _createButtonBottom,
-              child: SizedBox(
-                width: _createButtonWidth,
-                height: _createButtonHeight,
-                child: FloatingActionButton(
-                  heroTag: 'new_list',
-                  onPressed: _tab == _Tab.wallet
-                      ? _addCode
-                      : _handleCreateButton,
-                  backgroundColor: fillColor,
-                  foregroundColor: theme.colorScheme.onSurface,
-                  child: _tab == _Tab.wallet
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add, size: 18),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              width: 35,
-                              height: 35,
-                              child: OverflowBox(
-                                maxWidth: 88,
-                                maxHeight: 88,
-                                child: Icon(LucideIcons.qr_code, size: 30),
+                right: 0,
+                bottom: _createButtonBottom,
+                child: SizedBox(
+                  width: _createButtonWidth,
+                  height: _createButtonHeight,
+                  child: FloatingActionButton(
+                    heroTag: 'new_list',
+                    onPressed: _tab == _Tab.wallet
+                        ? _addCode
+                        : _handleCreateButton,
+                    backgroundColor: fillColor,
+                    foregroundColor: theme.colorScheme.onSurface,
+                    child: _tab == _Tab.wallet
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.add, size: 18),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 35,
+                                height: 35,
+                                child: OverflowBox(
+                                  maxWidth: 88,
+                                  maxHeight: 88,
+                                  child: Icon(LucideIcons.qr_code, size: 30),
+                                ),
                               ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _isCreateMenuOpen ? Icons.close : Icons.add,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 4),
-                            SizedBox(
-                              width: 35,
-                              height: 35,
-                              child: OverflowBox(
-                                maxWidth: 88,
-                                maxHeight: 88,
-                                child: SizedBox(
-                                  width: 45,
-                                  height: 45,
-                                  child: Image.asset(
-                                    'images/logo.png',
-                                    fit: BoxFit.cover,
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _isCreateMenuOpen ? Icons.close : Icons.add,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 35,
+                                height: 35,
+                                child: OverflowBox(
+                                  maxWidth: 88,
+                                  maxHeight: 88,
+                                  child: SizedBox(
+                                    width: 45,
+                                    height: 45,
+                                    child: Image.asset(
+                                      'images/logo.png',
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

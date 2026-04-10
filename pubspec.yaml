@@ -46,6 +46,7 @@ dependencies:
   supabase_flutter: ^2.0.0
   wakelock_plus: ^1.2.0
   dio: ^5.8.0
+  pub_semver: ^2.1.0
 
 dev_dependencies:
   flutter_test:

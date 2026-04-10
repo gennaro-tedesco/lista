@@ -100,8 +100,9 @@ class _SettingsPageState extends State<SettingsPage> {
             IconButton(
               onPressed: () async {
                 Navigator.pop(ctx, true);
-                if (permissionRequired)
+                if (permissionRequired) {
                   await UpdateService.openInstallSettings();
+                }
               },
               icon: Icon(
                 permissionRequired ? LucideIcons.settings : LucideIcons.check,

@@ -46,7 +46,10 @@ class VoiceConfirmationSheet extends StatefulWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: CenteredPopupShell(
-                        child: VoiceConfirmationSheet(items: items, source: source),
+                        child: VoiceConfirmationSheet(
+                          items: items,
+                          source: source,
+                        ),
                       ),
                     ),
                   ),
