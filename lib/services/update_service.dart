@@ -45,8 +45,9 @@ abstract final class UpdateService {
         .where((a) => (a['name'] as String).endsWith('.apk'))
         .firstOrNull;
     final downloadUrl = apk?['browser_download_url'] as String?;
-    if (downloadUrl == null)
+    if (downloadUrl == null) {
       throw Exception('No APK asset found in release $latestTag');
+    }
 
     return UpdateInfo(version: latestTag, downloadUrl: downloadUrl);
   }

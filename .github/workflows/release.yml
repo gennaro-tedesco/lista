@@ -25,6 +25,16 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Restore Android signing key
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/lista-release.jks
+          printf '%s\n' \
+            "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}" \
+            "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" \
+            "storeFile=lista-release.jks" \
+            > android/key.properties
+
       - name: Build APK
         run: |
           flutter build apk --release --target-platform android-arm64 \
