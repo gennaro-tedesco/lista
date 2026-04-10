@@ -45,6 +45,7 @@ dependencies:
   record: ^6.0.0
   supabase_flutter: ^2.0.0
   wakelock_plus: ^1.2.0
+  dio: ^5.8.0
 
 dev_dependencies:
   flutter_test:
