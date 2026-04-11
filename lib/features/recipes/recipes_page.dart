@@ -157,22 +157,22 @@ class _RecipesPageState extends State<RecipesPage> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: maxHeight),
                   child: ListView(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      children: items
-                          .map(
-                            (item) => InkWell(
-                              onTap: () => close(item.value),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                child: Text(item.label),
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: items
+                        .map(
+                          (item) => InkWell(
+                            onTap: () => close(item.value),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
+                              child: Text(item.label),
                             ),
-                          )
-                          .toList(),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ),
@@ -244,27 +244,44 @@ class _RecipesPageState extends State<RecipesPage> {
   ) {
     final theme = Theme.of(context);
     return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      recipe.name,
-                      style: theme.textTheme.titleMedium,
+      child: Dismissible(
+        key: ValueKey(recipe.id),
+        direction: DismissDirection.endToStart,
+        background: Container(color: Colors.transparent),
+        secondaryBackground: Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.error,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Icon(Icons.delete, color: theme.colorScheme.onError),
+        ),
+        onDismissed: (_) => setState(() {
+          _selectedRecipe = null;
+          _selectedRecipeId = null;
+        }),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        recipe.name,
+                        style: theme.textTheme.titleMedium,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildCreateListButton(context, recipe, fillColor),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: SingleChildScrollView(
+                    const SizedBox(width: 12),
+                    _buildCreateListButton(context, recipe, fillColor),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -316,15 +333,13 @@ class _RecipesPageState extends State<RecipesPage> {
                           style: theme.textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          recipe.instructions,
-                          textAlign: TextAlign.justify,
-                        ),
+                        Text(recipe.instructions, textAlign: TextAlign.justify),
                       ],
                     ),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -356,7 +371,7 @@ class _RecipesPageState extends State<RecipesPage> {
         children: [
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
               child: InkWell(
                 key: _categoryKey,
                 onTap: categoryEnabled ? _openCategoryMenu : null,
@@ -392,7 +407,7 @@ class _RecipesPageState extends State<RecipesPage> {
           const SizedBox(height: 16),
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
               child: InkWell(
                 key: _recipeKey,
                 onTap: recipeEnabled ? _openRecipeMenu : null,

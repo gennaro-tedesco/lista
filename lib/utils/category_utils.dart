@@ -5,6 +5,7 @@ import '../models/shopping_list_item.dart';
 const List<String> kCategoryOrder = [
   'Fruit',
   'Vegetable',
+  'Spices',
   'Drinks',
   'Meat',
   'Fish & Seafood',
@@ -29,6 +30,7 @@ Map<String, List<ShoppingListItem>> groupedItems(List<ShoppingListItem> items) {
 IconData categoryIcon(String category) => switch (category) {
   'Fruit' => LucideIcons.apple,
   'Vegetable' => LucideIcons.carrot,
+  'Spices' => LucideIcons.cooking_pot,
   'Drinks' => LucideIcons.glass_water,
   'Meat' => LucideIcons.beef,
   'Fish & Seafood' => LucideIcons.fish,

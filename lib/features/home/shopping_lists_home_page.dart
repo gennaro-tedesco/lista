@@ -13,6 +13,7 @@ import '../../models/shopping_list_template.dart';
 import '../../models/stored_code.dart';
 import '../../repositories/list_repository.dart';
 import '../../services/recipe_service.dart';
+import '../../services/suggestion_service.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
@@ -299,6 +300,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
               id: _uuid.v4(),
               name: ingredient.name,
               quantity: ingredient.measure.isEmpty ? null : ingredient.measure,
+              category: SuggestionService.categoryFor(ingredient.name),
             ),
           )
           .toList(),
