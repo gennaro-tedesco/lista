@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../services/recipe_service.dart';
+import 'recipe_detail_page.dart';
 
 class RecipesPage extends StatefulWidget {
   final RecipeService recipeService;
@@ -20,7 +20,6 @@ class RecipesPage extends StatefulWidget {
 class _RecipesPageState extends State<RecipesPage> {
   List<String> _authors = [];
   List<RecipeSummary> _recipes = [];
-  Recipe? _selectedRecipe;
   String? _selectedAuthor;
   int? _selectedRecipeId;
   Object? _authorError;
@@ -74,7 +73,6 @@ class _RecipesPageState extends State<RecipesPage> {
     if (author == null && search.isEmpty) {
       setState(() {
         _recipes = [];
-        _selectedRecipe = null;
         _selectedRecipeId = null;
         _hasQueried = false;
       });
@@ -84,7 +82,6 @@ class _RecipesPageState extends State<RecipesPage> {
       _loadingRecipes = true;
       _recipeError = null;
       _recipes = [];
-      _selectedRecipe = null;
       _selectedRecipeId = null;
       _hasQueried = true;
     });
@@ -110,17 +107,26 @@ class _RecipesPageState extends State<RecipesPage> {
   Future<void> _loadRecipe(int id) async {
     setState(() {
       _loadingRecipe = true;
-      _selectedRecipe = null;
     });
     try {
       final recipe = await widget.recipeService.getRecipe(id);
       if (!mounted || id != _selectedRecipeId) return;
-      setState(() => _selectedRecipe = recipe);
+      setState(() => _loadingRecipe = false);
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecipeDetailPage(
+            recipe: recipe,
+            onCreateList: widget.onCreateList,
+          ),
+        ),
+      );
+      if (!mounted || id != _selectedRecipeId) return;
+      setState(() => _selectedRecipeId = null);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
-      if (mounted) {
+      if (mounted && _loadingRecipe) {
         setState(() => _loadingRecipe = false);
       }
     }
@@ -130,7 +136,6 @@ class _RecipesPageState extends State<RecipesPage> {
     if (author == null) return;
     setState(() {
       _selectedAuthor = author;
-      _selectedRecipe = null;
       _selectedRecipeId = null;
     });
     _loadRecipes();
@@ -140,22 +145,6 @@ class _RecipesPageState extends State<RecipesPage> {
     if (id == null) return;
     setState(() => _selectedRecipeId = id);
     _loadRecipe(id);
-  }
-
-  Future<void> _openSourceUrl(String value) async {
-    final uri = Uri.tryParse(value);
-    if (uri == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid recipe URL')));
-      return;
-    }
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open recipe URL')),
-      );
-    }
   }
 
   Future<T?> _openMenuAt<T>(
@@ -231,196 +220,17 @@ class _RecipesPageState extends State<RecipesPage> {
     return completer.future;
   }
 
-  Widget _buildCreateListButton(
-    BuildContext context,
-    Recipe recipe,
-    Color fillColor,
-  ) => SizedBox(
-    width: 84,
-    height: 56,
-    child: FloatingActionButton(
-      heroTag: 'recipe_list',
-      onPressed: () => widget.onCreateList(recipe),
-      backgroundColor: fillColor,
-      foregroundColor: Theme.of(context).colorScheme.onSurface,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(Icons.add, size: 18),
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 35,
-            height: 35,
-            child: OverflowBox(
-              maxWidth: 88,
-              maxHeight: 88,
-              child: SizedBox(
-                width: 45,
-                height: 45,
-                child: Image.asset('images/logo.png', fit: BoxFit.cover),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _buildRecipePanel(
-    BuildContext context,
-    Recipe recipe,
-    Color fillColor,
-  ) {
-    final theme = Theme.of(context);
-    return Expanded(
-      child: Dismissible(
-        key: ValueKey(recipe.id),
-        direction: DismissDirection.endToStart,
-        background: Container(color: Colors.transparent),
-        secondaryBackground: Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.error,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Icon(Icons.delete, color: theme.colorScheme.onError),
-        ),
-        onDismissed: (_) {
-          setState(() {
-            _selectedRecipe = null;
-            _selectedRecipeId = null;
-            _searchController.clear();
-            _hasSearchText = false;
-          });
-          _loadRecipes();
-        },
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.14,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          recipe.name,
-                          style: theme.textTheme.titleMedium,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    _buildCreateListButton(context, recipe, fillColor),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Ingredients', style: theme.textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        ...recipe.ingredients.map(
-                          (ingredient) => Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 7,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(child: Text(ingredient.name)),
-                                if (ingredient.measure.isNotEmpty) ...[
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      ingredient.measure,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: theme.colorScheme.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Instructions',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(recipe.instructions, textAlign: TextAlign.justify),
-                        if (recipe.sourceUrl != null &&
-                            recipe.sourceUrl!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text(
-                            'Check it out!',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () => _openSourceUrl(recipe.sourceUrl!),
-                            child: Text(
-                              recipe.sourceUrl!,
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fillColor =
-        theme.inputDecorationTheme.fillColor ??
-        theme.colorScheme.surfaceContainerHighest;
     final hintStyle =
         (theme.inputDecorationTheme.hintStyle ?? const TextStyle()).copyWith(
           color: theme.inputDecorationTheme.hintStyle?.color ?? theme.hintColor,
         );
-    final selectedRecipe = _selectedRecipe;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 128),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Card(
             child: Padding(
@@ -535,7 +345,6 @@ class _RecipesPageState extends State<RecipesPage> {
                             setState(() {
                               _selectedAuthor = null;
                               _recipes = [];
-                              _selectedRecipe = null;
                               _selectedRecipeId = null;
                               _hasQueried = false;
                             });
@@ -589,69 +398,50 @@ class _RecipesPageState extends State<RecipesPage> {
             FilledButton(onPressed: _loadAuthors, child: const Text('Retry')),
           ],
           const SizedBox(height: 16),
-          if (_recipeError != null) ...[
-            FilledButton(onPressed: _loadRecipes, child: const Text('Retry')),
-            const SizedBox(height: 16),
-          ] else if (_hasQueried && _recipes.isEmpty) ...[
-            Text('No results', style: hintStyle),
-            const SizedBox(height: 16),
-          ] else if (_recipes.isNotEmpty)
-            Builder(
-              builder: (ctx) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 0,
-                  ),
-                  child: InkWell(
-                    onTap: !_loadingRecipe
-                        ? () async {
-                            final selected = await _openMenuAt<int>(
-                              ctx,
-                              _recipes
-                                  .map((r) => (value: r.id, label: r.name))
-                                  .toList(),
-                            );
-                            _selectRecipe(selected);
-                          }
-                        : null,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InputDecorator(
-                      decoration: InputDecoration(enabled: !_loadingRecipe),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _selectedRecipeId != null
-                                  ? (_recipes
-                                            .where(
-                                              (r) => r.id == _selectedRecipeId,
-                                            )
-                                            .firstOrNull
-                                            ?.name ??
-                                        'Select recipe')
-                                  : 'Select recipe',
-                              style: _selectedRecipeId != null
-                                  ? null
-                                  : hintStyle,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const Icon(Icons.arrow_drop_down),
-                        ],
-                      ),
+          Expanded(
+            child: _recipeError != null
+                ? Align(
+                    alignment: Alignment.topLeft,
+                    child: FilledButton(
+                      onPressed: _loadRecipes,
+                      child: const Text('Retry'),
                     ),
+                  )
+                : _hasQueried && _recipes.isEmpty
+                ? Align(
+                    alignment: Alignment.topLeft,
+                    child: Text('No results', style: hintStyle),
+                  )
+                : ListView.separated(
+                    itemCount: _recipes.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: 1,
+                      color: theme.colorScheme.outlineVariant,
+                    ),
+                    itemBuilder: (context, index) {
+                      final recipe = _recipes[index];
+                      return InkWell(
+                        onTap: !_loadingRecipe
+                            ? () => _selectRecipe(recipe.id)
+                            : null,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(child: Text(recipe.name)),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.chevron_right),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          if (_loadingRecipe)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
-          else if (selectedRecipe != null)
-            _buildRecipePanel(context, selectedRecipe, fillColor)
-          else
-            const Spacer(),
+          ),
         ],
       ),
     );

@@ -53,10 +53,12 @@ class _HowToPageState extends State<HowToPage> {
     (
       title: 'Recipes',
       actions: [
-        'Tap the category selector to choose a food category.',
-        'Tap the recipe selector to choose a recipe.',
+        'Type in the title field and tap search to query recipes.',
+        'Tap the author selector to filter recipes by author.',
+        'Tap a recipe result in the list to open its detail page.',
+        'Tap the chevron back button to return to the filters and results.',
         'Tap + list to import recipe ingredients as a shopping list.',
-        'Tap close to dismiss the recipe popup.',
+        'Tap the source URL link to open the recipe on the web when available.',
       ],
     ),
     (
