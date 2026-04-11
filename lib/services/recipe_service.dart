@@ -1,56 +1,26 @@
-import 'package:dio/dio.dart';
-
-class RecipeCategory {
-  final String id;
-  final String name;
-
-  const RecipeCategory({required this.id, required this.name});
-
-  factory RecipeCategory.fromJson(Map<String, dynamic> json) => RecipeCategory(
-    id: json['idCategory'] as String? ?? '',
-    name: json['strCategory'] as String? ?? '',
-  );
-}
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RecipeSummary {
-  final String id;
+  final int id;
   final String name;
 
   const RecipeSummary({required this.id, required this.name});
-
-  factory RecipeSummary.fromJson(Map<String, dynamic> json) => RecipeSummary(
-    id: json['idMeal'] as String? ?? '',
-    name: json['strMeal'] as String? ?? '',
-  );
 }
 
 class Recipe {
-  final String id;
+  final int id;
   final String name;
   final List<RecipeIngredient> ingredients;
   final String instructions;
+  final String? sourceUrl;
 
   const Recipe({
     required this.id,
     required this.name,
     required this.ingredients,
     required this.instructions,
+    required this.sourceUrl,
   });
-
-  factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
-    id: json['idMeal'] as String? ?? '',
-    name: json['strMeal'] as String? ?? '',
-    ingredients:
-        (List.generate(20, (index) {
-          final number = index + 1;
-          final name = (json['strIngredient$number'] as String? ?? '').trim();
-          final measure = (json['strMeasure$number'] as String? ?? '').trim();
-          return RecipeIngredient(name: name, measure: measure);
-        }).where((ingredient) => ingredient.name.isNotEmpty).toList()..sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        )),
-    instructions: json['strInstructions'] as String? ?? '',
-  );
 }
 
 class RecipeIngredient {
@@ -61,45 +31,64 @@ class RecipeIngredient {
 }
 
 class RecipeService {
-  final Dio _dio;
+  final SupabaseClient _client;
 
-  RecipeService({Dio? dio})
-    : _dio =
-          dio ??
-          Dio(BaseOptions(baseUrl: 'https://www.themealdb.com/api/json/v1/1'));
+  RecipeService() : _client = Supabase.instance.client;
 
-  Future<List<RecipeCategory>> getCategories() async {
-    final response = await _dio.get<Map<String, dynamic>>('/categories.php');
-    final categories = response.data?['categories'] as List<dynamic>? ?? [];
-    return categories
-        .map((item) => RecipeCategory.fromJson(item as Map<String, dynamic>))
-        .where((category) => category.id.isNotEmpty && category.name.isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  Future<List<String>> getAuthors() async {
+    final data = await _client.from('recipes').select('author').order('author');
+    final authors = data
+        .map((r) => r['author'] as String?)
+        .whereType<String>()
+        .map((author) => author.trim())
+        .where((author) => author.isNotEmpty)
+        .toSet()
+        .toList();
+    authors.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return authors;
   }
 
-  Future<List<RecipeSummary>> getRecipes(String category) async {
-    final response = await _dio.get<Map<String, dynamic>>(
-      '/filter.php',
-      queryParameters: {'c': category},
-    );
-    final meals = response.data?['meals'] as List<dynamic>? ?? [];
-    return meals
-        .map((item) => RecipeSummary.fromJson(item as Map<String, dynamic>))
-        .where((recipe) => recipe.id.isNotEmpty && recipe.name.isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-  }
-
-  Future<Recipe> getRecipe(String id) async {
-    final response = await _dio.get<Map<String, dynamic>>(
-      '/lookup.php',
-      queryParameters: {'i': id},
-    );
-    final meals = response.data?['meals'] as List<dynamic>? ?? [];
-    if (meals.isEmpty) {
-      throw Exception('Recipe not found');
+  Future<List<RecipeSummary>> getRecipes({
+    String? author,
+    String search = '',
+  }) async {
+    var query = _client.from('recipes').select('id, title');
+    if (author != null) {
+      query = query.eq('author', author);
     }
-    return Recipe.fromJson(meals.first as Map<String, dynamic>);
+    if (search.isNotEmpty) {
+      query = query.ilike('title', '%$search%');
+    }
+    final data = await query.order('title');
+    return (data
+          .map(
+            (r) =>
+                RecipeSummary(id: r['id'] as int, name: r['title'] as String),
+          )
+          .toList())
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  Future<Recipe> getRecipe(int id) async {
+    final row = await _client.from('recipes').select().eq('id', id).single();
+    final ingredients =
+        (row['ingredients'] as List<dynamic>)
+            .map(
+              (i) => RecipeIngredient(
+                name: i['ingredient'] as String,
+                measure: i['quantity'] as String? ?? '',
+              ),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+    return Recipe(
+      id: row['id'] as int,
+      name: row['title'] as String,
+      ingredients: ingredients,
+      instructions: row['description'] as String? ?? '',
+      sourceUrl: row['source_url'] as String?,
+    );
   }
 }

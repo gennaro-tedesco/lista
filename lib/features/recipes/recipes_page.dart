@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/recipe_service.dart';
 
 class RecipesPage extends StatefulWidget {
@@ -17,71 +18,88 @@ class RecipesPage extends StatefulWidget {
 }
 
 class _RecipesPageState extends State<RecipesPage> {
-  List<RecipeCategory> _categories = [];
+  List<String> _authors = [];
   List<RecipeSummary> _recipes = [];
   Recipe? _selectedRecipe;
-  String? _selectedCategory;
-  String? _selectedRecipeId;
-  Object? _categoryError;
+  String? _selectedAuthor;
+  int? _selectedRecipeId;
+  Object? _authorError;
   Object? _recipeError;
-  bool _loadingCategories = true;
+  bool _loadingAuthors = true;
   bool _loadingRecipes = false;
   bool _loadingRecipe = false;
+  bool _hasQueried = false;
+  bool _hasSearchText = false;
 
-  final GlobalKey _categoryKey = GlobalKey();
-  final GlobalKey _recipeKey = GlobalKey();
+  final TextEditingController _searchController = TextEditingController();
   OverlayEntry? _menuOverlay;
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
+    _loadAuthors();
   }
 
   @override
   void dispose() {
     _menuOverlay?.remove();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadAuthors() async {
     setState(() {
-      _loadingCategories = true;
-      _categoryError = null;
+      _loadingAuthors = true;
+      _authorError = null;
     });
     try {
-      final categories = await widget.recipeService.getCategories();
+      final authors = await widget.recipeService.getAuthors();
       if (!mounted) return;
       setState(() {
-        _categories = categories;
-        _loadingCategories = false;
+        _authors = authors;
+        _loadingAuthors = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _categoryError = e;
-        _loadingCategories = false;
+        _authorError = e;
+        _loadingAuthors = false;
       });
     }
   }
 
-  Future<void> _loadRecipes(String category) async {
+  Future<void> _loadRecipes() async {
+    final author = _selectedAuthor;
+    final search = _searchController.text.trim();
+    if (author == null && search.isEmpty) {
+      setState(() {
+        _recipes = [];
+        _selectedRecipe = null;
+        _selectedRecipeId = null;
+        _hasQueried = false;
+      });
+      return;
+    }
     setState(() {
       _loadingRecipes = true;
       _recipeError = null;
       _recipes = [];
       _selectedRecipe = null;
       _selectedRecipeId = null;
+      _hasQueried = true;
     });
     try {
-      final recipes = await widget.recipeService.getRecipes(category);
-      if (!mounted || category != _selectedCategory) return;
+      final recipes = await widget.recipeService.getRecipes(
+        author: author,
+        search: search,
+      );
+      if (!mounted) return;
       setState(() {
         _recipes = recipes;
         _loadingRecipes = false;
       });
     } catch (e) {
-      if (!mounted || category != _selectedCategory) return;
+      if (!mounted) return;
       setState(() {
         _recipeError = e;
         _loadingRecipes = false;
@@ -89,7 +107,7 @@ class _RecipesPageState extends State<RecipesPage> {
     }
   }
 
-  Future<void> _loadRecipe(String id) async {
+  Future<void> _loadRecipe(int id) async {
     setState(() {
       _loadingRecipe = true;
       _selectedRecipe = null;
@@ -108,24 +126,44 @@ class _RecipesPageState extends State<RecipesPage> {
     }
   }
 
-  void _selectCategory(String? category) {
-    if (category == null) return;
-    setState(() => _selectedCategory = category);
-    _loadRecipes(category);
+  void _selectAuthor(String? author) {
+    if (author == null) return;
+    setState(() {
+      _selectedAuthor = author;
+      _selectedRecipe = null;
+      _selectedRecipeId = null;
+    });
+    _loadRecipes();
   }
 
-  void _selectRecipe(String? id) {
+  void _selectRecipe(int? id) {
     if (id == null) return;
     setState(() => _selectedRecipeId = id);
     _loadRecipe(id);
   }
 
-  Future<T?> _openMenu<T>(
-    GlobalKey key,
+  Future<void> _openSourceUrl(String value) async {
+    final uri = Uri.tryParse(value);
+    if (uri == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid recipe URL')));
+      return;
+    }
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open recipe URL')),
+      );
+    }
+  }
+
+  Future<T?> _openMenuAt<T>(
+    BuildContext ctx,
     List<({T value, String label})> items,
   ) {
-    final renderBox = key.currentContext?.findRenderObject();
-    if (renderBox is! RenderBox) return Future.value(null);
+    final renderBox = ctx.findRenderObject() as RenderBox?;
+    if (renderBox == null) return Future.value(null);
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final topLeft = renderBox.localToGlobal(Offset.zero, ancestor: overlay);
     final top = topLeft.dy + renderBox.size.height;
@@ -156,24 +194,32 @@ class _RecipesPageState extends State<RecipesPage> {
                 borderRadius: BorderRadius.circular(4),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: maxHeight),
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    children: items
-                        .map(
-                          (item) => InkWell(
-                            onTap: () => close(item.value),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              child: Text(item.label),
-                            ),
+                  child: items.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
+                          child: Text('No results'),
                         )
-                        .toList(),
-                  ),
+                      : ListView(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          children: items
+                              .map(
+                                (item) => InkWell(
+                                  onTap: () => close(item.value),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    child: Text(item.label),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
                 ),
               ),
             ),
@@ -183,22 +229,6 @@ class _RecipesPageState extends State<RecipesPage> {
     );
     Overlay.of(context).insert(_menuOverlay!);
     return completer.future;
-  }
-
-  Future<void> _openCategoryMenu() async {
-    final selected = await _openMenu<String>(
-      _categoryKey,
-      _categories.map((c) => (value: c.name, label: c.name)).toList(),
-    );
-    _selectCategory(selected);
-  }
-
-  Future<void> _openRecipeMenu() async {
-    final selected = await _openMenu<String>(
-      _recipeKey,
-      _recipes.map((r) => (value: r.id, label: r.name)).toList(),
-    );
-    _selectRecipe(selected);
   }
 
   Widget _buildCreateListButton(
@@ -257,10 +287,15 @@ class _RecipesPageState extends State<RecipesPage> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Icon(Icons.delete, color: theme.colorScheme.onError),
         ),
-        onDismissed: (_) => setState(() {
-          _selectedRecipe = null;
-          _selectedRecipeId = null;
-        }),
+        onDismissed: (_) {
+          setState(() {
+            _selectedRecipe = null;
+            _selectedRecipeId = null;
+            _searchController.clear();
+            _hasSearchText = false;
+          });
+          _loadRecipes();
+        },
         child: Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -270,9 +305,21 @@ class _RecipesPageState extends State<RecipesPage> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        recipe.name,
-                        style: theme.textTheme.titleMedium,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.14,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          recipe.name,
+                          style: theme.textTheme.titleMedium,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -295,12 +342,7 @@ class _RecipesPageState extends State<RecipesPage> {
                             ),
                             child: Row(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    ingredient.name,
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
-                                ),
+                                Expanded(child: Text(ingredient.name)),
                                 if (ingredient.measure.isNotEmpty) ...[
                                   const SizedBox(width: 10),
                                   Container(
@@ -334,6 +376,25 @@ class _RecipesPageState extends State<RecipesPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(recipe.instructions, textAlign: TextAlign.justify),
+                        if (recipe.sourceUrl != null &&
+                            recipe.sourceUrl!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            'Check it out!',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _openSourceUrl(recipe.sourceUrl!),
+                            child: Text(
+                              recipe.sourceUrl!,
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -356,14 +417,6 @@ class _RecipesPageState extends State<RecipesPage> {
         (theme.inputDecorationTheme.hintStyle ?? const TextStyle()).copyWith(
           color: theme.inputDecorationTheme.hintStyle?.color ?? theme.hintColor,
         );
-    final categoryEnabled =
-        !_loadingCategories && _categoryError == null && _categories.isNotEmpty;
-    final recipeEnabled =
-        _selectedCategory != null &&
-        !_loadingRecipes &&
-        !_loadingRecipe &&
-        _recipeError == null &&
-        _recipes.isNotEmpty;
     final selectedRecipe = _selectedRecipe;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 128),
@@ -372,80 +425,226 @@ class _RecipesPageState extends State<RecipesPage> {
           Card(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-              child: InkWell(
-                key: _categoryKey,
-                onTap: categoryEnabled ? _openCategoryMenu : null,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: InputDecoration(enabled: categoryEnabled),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _selectedCategory ?? 'Select category',
-                          style: _selectedCategory != null ? null : hintStyle,
-                          overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      enabled: !_loadingRecipes && !_loadingRecipe,
+                      decoration: InputDecoration(
+                        hintText: 'Search by title...',
+                        hintStyle: hintStyle,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                      ),
+                      onChanged: (v) =>
+                          setState(() => _hasSearchText = v.isNotEmpty),
+                      onSubmitted: (_) => _loadRecipes(),
+                    ),
+                  ),
+                  Opacity(
+                    opacity: _hasSearchText ? 1.0 : 0.0,
+                    child: IgnorePointer(
+                      ignoring: !_hasSearchText,
+                      child: IconButton.filled(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _hasSearchText = false);
+                          _loadRecipes();
+                        },
+                        style: IconButton.styleFrom(
+                          backgroundColor: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.14),
+                          foregroundColor: theme.colorScheme.onSurfaceVariant,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: const Size(32, 32),
+                          maximumSize: const Size(32, 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: !_loadingRecipes && !_loadingRecipe
+                        ? _loadRecipes
+                        : null,
+                    style: IconButton.styleFrom(
+                      backgroundColor: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.14),
+                      foregroundColor: theme.colorScheme.onSurfaceVariant,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(32, 32),
+                      maximumSize: const Size(32, 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: const Icon(Icons.search, size: 18),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Builder(
+            builder: (ctx) => Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 0,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _loadingAuthors
+                            ? null
+                            : () async {
+                                final selected = await _openMenuAt<String>(
+                                  ctx,
+                                  _authors
+                                      .map((a) => (value: a, label: a))
+                                      .toList(),
+                                );
+                                _selectAuthor(selected);
+                              },
+                        child: TextField(
+                          enabled: false,
+                          decoration: InputDecoration(
+                            hintText: _selectedAuthor ?? 'Select author',
+                            hintStyle: _selectedAuthor != null
+                                ? DefaultTextStyle.of(context).style
+                                : hintStyle,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                          ),
                         ),
                       ),
-                      const Icon(Icons.arrow_drop_down),
-                    ],
-                  ),
+                    ),
+                    Opacity(
+                      opacity: _selectedAuthor != null ? 1.0 : 0.0,
+                      child: IgnorePointer(
+                        ignoring: _selectedAuthor == null,
+                        child: IconButton.filled(
+                          onPressed: () {
+                            setState(() {
+                              _selectedAuthor = null;
+                              _recipes = [];
+                              _selectedRecipe = null;
+                              _selectedRecipeId = null;
+                              _hasQueried = false;
+                            });
+                            _loadRecipes();
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.14),
+                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            minimumSize: const Size(32, 32),
+                            maximumSize: const Size(32, 32),
+                            padding: EdgeInsets.zero,
+                          ),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: _loadingAuthors
+                          ? null
+                          : () async {
+                              final selected = await _openMenuAt<String>(
+                                ctx,
+                                _authors
+                                    .map((a) => (value: a, label: a))
+                                    .toList(),
+                              );
+                              _selectAuthor(selected);
+                            },
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.14),
+                        foregroundColor: theme.colorScheme.onSurfaceVariant,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(32, 32),
+                        maximumSize: const Size(32, 32),
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: const Icon(Icons.arrow_drop_down, size: 18),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                 ),
               ),
             ),
           ),
-          if (_loadingCategories) ...[
+          if (_authorError != null) ...[
             const SizedBox(height: 12),
-            const LinearProgressIndicator(),
-          ] else if (_categoryError != null) ...[
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _loadCategories,
-              child: const Text('Retry'),
-            ),
+            FilledButton(onPressed: _loadAuthors, child: const Text('Retry')),
           ],
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-              child: InkWell(
-                key: _recipeKey,
-                onTap: recipeEnabled ? _openRecipeMenu : null,
-                borderRadius: BorderRadius.circular(12),
-                child: InputDecorator(
-                  decoration: InputDecoration(enabled: recipeEnabled),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _selectedRecipeId != null
-                              ? (_recipes
-                                        .where((r) => r.id == _selectedRecipeId)
-                                        .firstOrNull
-                                        ?.name ??
-                                    'Select recipe')
-                              : 'Select recipe',
-                          style: _selectedRecipeId != null ? null : hintStyle,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+          if (_recipeError != null) ...[
+            FilledButton(onPressed: _loadRecipes, child: const Text('Retry')),
+            const SizedBox(height: 16),
+          ] else if (_hasQueried && _recipes.isEmpty) ...[
+            Text('No results', style: hintStyle),
+            const SizedBox(height: 16),
+          ] else if (_recipes.isNotEmpty)
+            Builder(
+              builder: (ctx) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 0,
+                  ),
+                  child: InkWell(
+                    onTap: !_loadingRecipe
+                        ? () async {
+                            final selected = await _openMenuAt<int>(
+                              ctx,
+                              _recipes
+                                  .map((r) => (value: r.id, label: r.name))
+                                  .toList(),
+                            );
+                            _selectRecipe(selected);
+                          }
+                        : null,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: InputDecoration(enabled: !_loadingRecipe),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedRecipeId != null
+                                  ? (_recipes
+                                            .where(
+                                              (r) => r.id == _selectedRecipeId,
+                                            )
+                                            .firstOrNull
+                                            ?.name ??
+                                        'Select recipe')
+                                  : 'Select recipe',
+                              style: _selectedRecipeId != null
+                                  ? null
+                                  : hintStyle,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
                       ),
-                      const Icon(Icons.arrow_drop_down),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (_loadingRecipes) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(),
-          ] else if (_recipeError != null) ...[
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => _loadRecipes(_selectedCategory!),
-              child: const Text('Retry'),
-            ),
-          ],
           const SizedBox(height: 16),
           if (_loadingRecipe)
             const Expanded(child: Center(child: CircularProgressIndicator()))

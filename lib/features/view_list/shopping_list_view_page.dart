@@ -315,15 +315,23 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     });
   }
 
+  bool _isDuplicate(String name, String? quantity) => widget.list.items.any(
+    (i) =>
+        i.name.trim().toLowerCase() == name.trim().toLowerCase() &&
+        i.quantity == quantity,
+  );
+
   void _addFromSuggestion(FoodSuggestion suggestion) {
+    final quantity = _quantityController.text.trim().isEmpty
+        ? null
+        : _quantityController.text.trim();
+    if (_isDuplicate(suggestion.name, quantity)) return;
     setState(() {
       widget.list.items.add(
         ShoppingListItem(
           id: _uuid.v4(),
           name: suggestion.name,
-          quantity: _quantityController.text.trim().isEmpty
-              ? null
-              : _quantityController.text.trim(),
+          quantity: quantity,
           category: _pendingCategory == 'Other'
               ? null
               : _pendingCategory ?? suggestion.category,
@@ -340,14 +348,16 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   void _addFromText() {
     final text = _itemController.text.trim();
     if (text.isEmpty) return;
+    final quantity = _quantityController.text.trim().isEmpty
+        ? null
+        : _quantityController.text.trim();
+    if (_isDuplicate(text, quantity)) return;
     setState(() {
       widget.list.items.add(
         ShoppingListItem(
           id: _uuid.v4(),
           name: text,
-          quantity: _quantityController.text.trim().isEmpty
-              ? null
-              : _quantityController.text.trim(),
+          quantity: quantity,
           category: _pendingCategory == 'Other'
               ? null
               : _pendingCategory ?? SuggestionService.categoryFor(text),
