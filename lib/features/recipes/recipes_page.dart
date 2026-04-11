@@ -27,7 +27,7 @@ class _RecipesPageState extends State<RecipesPage> {
   bool _loadingCategories = true;
   bool _loadingRecipes = false;
   bool _loadingRecipe = false;
-  final ScrollController _recipeScrollController = ScrollController();
+
   final GlobalKey _categoryKey = GlobalKey();
   final GlobalKey _recipeKey = GlobalKey();
   OverlayEntry? _menuOverlay;
@@ -41,7 +41,6 @@ class _RecipesPageState extends State<RecipesPage> {
   @override
   void dispose() {
     _menuOverlay?.remove();
-    _recipeScrollController.dispose();
     super.dispose();
   }
 
@@ -134,7 +133,6 @@ class _RecipesPageState extends State<RecipesPage> {
     final width = renderBox.size.width;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.48;
     final completer = Completer<T?>();
-    final scrollController = ScrollController();
 
     void close(T? value) {
       _menuOverlay?.remove();
@@ -158,11 +156,7 @@ class _RecipesPageState extends State<RecipesPage> {
                 borderRadius: BorderRadius.circular(4),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: maxHeight),
-                  child: Scrollbar(
-                    controller: scrollController,
-                    thumbVisibility: true,
-                    child: ListView(
-                      controller: scrollController,
+                  child: ListView(
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
                       children: items
@@ -179,7 +173,6 @@ class _RecipesPageState extends State<RecipesPage> {
                             ),
                           )
                           .toList(),
-                    ),
                   ),
                 ),
               ),
@@ -271,11 +264,7 @@ class _RecipesPageState extends State<RecipesPage> {
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: Scrollbar(
-                  controller: _recipeScrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _recipeScrollController,
+                child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -327,12 +316,14 @@ class _RecipesPageState extends State<RecipesPage> {
                           style: theme.textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
-                        Text(recipe.instructions),
+                        Text(
+                          recipe.instructions,
+                          textAlign: TextAlign.justify,
+                        ),
                       ],
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
