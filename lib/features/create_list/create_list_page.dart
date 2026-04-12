@@ -171,7 +171,16 @@ class _CreateListPageState extends State<CreateListPage>
 
   void _toggleItem(String id) {
     final item = _items.firstWhere((i) => i.id == id);
-    setState(() => item.isChecked = !item.isChecked);
+    setState(() {
+      item.isChecked = !item.isChecked;
+      final category = item.category ?? 'Other';
+      final categoryItems = _items.where(
+        (i) => (i.category ?? 'Other') == category,
+      );
+      if (categoryItems.every((i) => i.isChecked)) {
+        _collapsedCategories.add(category);
+      }
+    });
   }
 
   void _deleteItem(String id) {
