@@ -950,6 +950,12 @@ class _CreateListPageState extends State<CreateListPage>
                                           builder: (context, child) {
                                             final progress =
                                                 _fishController.value;
+                                            final emojiSize =
+                                                theme
+                                                    .textTheme
+                                                    .displayMedium
+                                                    ?.fontSize ??
+                                                40.0;
                                             final leadOpacity = _windowOpacity(
                                               progress,
                                               start: 0.0,
@@ -972,15 +978,21 @@ class _CreateListPageState extends State<CreateListPage>
                                                       24 +
                                                       (_fishPosition.dy *
                                                           height),
-                                                  child: Opacity(
-                                                    opacity: _fishStartsFirst
-                                                        ? leadOpacity
-                                                        : followOpacity,
-                                                    child: Text(
-                                                      '🐟',
-                                                      style: theme
-                                                          .textTheme
-                                                          .displayMedium,
+                                                  child: Transform.translate(
+                                                    offset: Offset(
+                                                      -(emojiSize / 2),
+                                                      -(emojiSize / 2),
+                                                    ),
+                                                    child: Opacity(
+                                                      opacity: _fishStartsFirst
+                                                          ? leadOpacity
+                                                          : followOpacity,
+                                                      child: Text(
+                                                        '🐟',
+                                                        style: theme
+                                                            .textTheme
+                                                            .displayMedium,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -993,15 +1005,21 @@ class _CreateListPageState extends State<CreateListPage>
                                                       24 +
                                                       (_penguinPosition.dy *
                                                           height),
-                                                  child: Opacity(
-                                                    opacity: _fishStartsFirst
-                                                        ? followOpacity
-                                                        : leadOpacity,
-                                                    child: Text(
-                                                      '🐧',
-                                                      style: theme
-                                                          .textTheme
-                                                          .displayMedium,
+                                                  child: Transform.translate(
+                                                    offset: Offset(
+                                                      -(emojiSize / 2),
+                                                      -(emojiSize / 2),
+                                                    ),
+                                                    child: Opacity(
+                                                      opacity: _fishStartsFirst
+                                                          ? followOpacity
+                                                          : leadOpacity,
+                                                      child: Text(
+                                                        '🐧',
+                                                        style: theme
+                                                            .textTheme
+                                                            .displayMedium,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
