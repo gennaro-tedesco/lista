@@ -59,14 +59,20 @@ class RecipeService {
     if (search.isNotEmpty) {
       query = query.ilike('title', '%$search%');
     }
-    final data = await query.order('title');
-    return (data
-          .map(
-            (r) =>
-                RecipeSummary(id: r['id'] as int, name: r['title'] as String),
-          )
-          .toList())
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final data = await query.order('title', ascending: true).limit(100);
+    final recipes =
+        (data
+              .map(
+                (r) => RecipeSummary(
+                  id: r['id'] as int,
+                  name: r['title'] as String,
+                ),
+              )
+              .toList())
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
+    return recipes;
   }
 
   Future<Recipe> getRecipe(int id) async {

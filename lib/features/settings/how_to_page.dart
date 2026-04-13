@@ -56,6 +56,7 @@ class _HowToPageState extends State<HowToPage> {
         'Type in the title field and tap search to query recipes.',
         'Tap the author selector to filter recipes by author.',
         'Tap a recipe result in the list to open its detail page.',
+        'Swipe right on the recipe detail page to go back.',
         'Tap the chevron back button to return to the filters and results.',
         'Tap + list to import recipe ingredients as a shopping list.',
         'Tap the source URL link to open the recipe on the web when available.',
@@ -112,6 +113,7 @@ class _HowToPageState extends State<HowToPage> {
       title: 'Settings',
       actions: [
         'Tap Appearance to change theme, font size, and font.',
+        'Tap How to to open the in-app usage guide.',
         'Tap Account to sign in or sign out.',
         'Tap About to view the current app version string.',
       ],
