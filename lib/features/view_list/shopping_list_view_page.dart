@@ -5,6 +5,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../../app/ui_sizes.dart';
 import '../../models/food_suggestion.dart';
 import '../../models/shopping_list.dart';
 import '../../models/shopping_list_item.dart';
@@ -57,7 +58,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   final TextEditingController _itemController = TextEditingController();
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _totalPriceController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final FocusNode _itemFocusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   Timer? _scrollTimer;
   static const _currencyOptions = ['€', '\$', '£', '¥', 'CHF'];
@@ -82,6 +85,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool _isProcessing = false;
   bool _isExtractingImage = false;
   double _noteIconTurns = 0.0;
+  bool _isSearchVisible = false;
+  Set<String> _highlightedItemIds = {};
 
   @override
   void initState() {
@@ -102,7 +107,9 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     _itemController.dispose();
     _quantityController.dispose();
     _totalPriceController.dispose();
+    _searchController.dispose();
     _itemFocusNode.dispose();
+    _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -144,6 +151,94 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
     setState(() => _noteIconTurns += 1.0);
     if (saved != null) {
       await NoteService.saveNote(widget.list.id, saved);
+    }
+  }
+
+  void _showNoResultsPopup() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          });
+          return const AlertDialog(title: Text('No results'));
+        },
+      );
+    });
+  }
+
+  void _toggleSearch() {
+    if (_isSearchVisible) {
+      _submitSearch();
+      return;
+    }
+    setState(() {
+      _isSearchVisible = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _isSearchVisible = false;
+      _highlightedItemIds = {};
+    });
+  }
+
+  Future<void> _submitSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      return;
+    }
+    final items = widget.list.items;
+    final matched = items
+        .where((item) => item.name.toLowerCase().contains(query.toLowerCase()))
+        .map((i) => i.id)
+        .toSet();
+    if (matched.isEmpty) {
+      if (!mounted) return;
+      _showNoResultsPopup();
+      return;
+    }
+    setState(() {
+      _highlightedItemIds = matched;
+      for (final item in items.where((i) => matched.contains(i.id))) {
+        _collapsedCategories.remove(item.category ?? 'Other');
+      }
+    });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    const iconRowHeight = 56.0;
+    const categoryHeaderHeight = 40.0;
+    const itemHeight = 46.0;
+    double offset = iconRowHeight;
+    outer:
+    for (final entry in groupedItems(items).entries) {
+      offset += categoryHeaderHeight;
+      if (!_collapsedCategories.contains(entry.key)) {
+        for (final item in entry.value) {
+          if (matched.contains(item.id)) break outer;
+          offset += itemHeight;
+        }
+      }
+    }
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(
+        offset.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -1033,6 +1128,8 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
             decoration: BoxDecoration(
               color: isActive
                   ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                  : _highlightedItemIds.contains(item.id)
+                  ? theme.colorScheme.tertiary.withValues(alpha: 0.25)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: Border(
@@ -1147,23 +1244,120 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: IconButton(
-                                    onPressed: _openNotePanel,
-                                    tooltip: 'Note',
-                                    color: theme.colorScheme.onSurface,
-                                    icon: AnimatedRotation(
-                                      turns: _noteIconTurns,
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      child: const Icon(
-                                        LucideIcons.notepad_text,
-                                        size: 22,
+                                child: Row(
+                                  children: [
+                                    IconButton(
+                                      onPressed: _openNotePanel,
+                                      tooltip: 'Note',
+                                      color: theme.colorScheme.onSurface,
+                                      icon: AnimatedRotation(
+                                        turns: _noteIconTurns,
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        child: const Icon(
+                                          LucideIcons.notepad_text,
+                                          size: AppIconSize.toolbar,
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    const Spacer(),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 220,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                          width: _isSearchVisible ? 180 : 0,
+                                          height: AppFieldSize.inlineSearch,
+                                          child: ClipRect(
+                                            child: Align(
+                                              alignment: Alignment.centerRight,
+                                              child: SizedBox(
+                                                width: 180,
+                                                height:
+                                                    AppFieldSize.inlineSearch,
+                                                child: TextField(
+                                                  controller: _searchController,
+                                                  focusNode: _searchFocusNode,
+                                                  autofocus: true,
+                                                  textAlignVertical:
+                                                      TextAlignVertical.center,
+                                                  textCapitalization:
+                                                      TextCapitalization
+                                                          .sentences,
+                                                  textInputAction:
+                                                      TextInputAction.search,
+                                                  maxLines: 1,
+                                                  onSubmitted: (_) =>
+                                                      _submitSearch(),
+                                                  decoration: InputDecoration(
+                                                    hintText: 'Search items',
+                                                    filled: true,
+                                                    fillColor: fillColor,
+                                                    isDense: true,
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 8,
+                                                        ),
+                                                    suffixIconConstraints:
+                                                        AppConstraints
+                                                            .compactIcon,
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                      borderSide:
+                                                          BorderSide.none,
+                                                    ),
+                                                    enabledBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                999,
+                                                              ),
+                                                          borderSide:
+                                                              BorderSide.none,
+                                                        ),
+                                                    focusedBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                999,
+                                                              ),
+                                                          borderSide:
+                                                              BorderSide.none,
+                                                        ),
+                                                    suffixIcon: IconButton(
+                                                      onPressed: _closeSearch,
+                                                      icon: const Icon(
+                                                        LucideIcons.x,
+                                                        size: AppIconSize
+                                                            .inlineAction,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          onPressed: _toggleSearch,
+                                          tooltip: 'Search',
+                                          color: theme.colorScheme.onSurface,
+                                          icon: const Icon(
+                                            LucideIcons.search,
+                                            size: AppIconSize.toolbar,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                               if (items.isNotEmpty) ...[
@@ -1267,7 +1461,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   )
-                                : const Icon(LucideIcons.mic, size: 22),
+                                : const Icon(
+                                    LucideIcons.mic,
+                                    size: AppIconSize.toolbar,
+                                  ),
                           ),
                           const SizedBox(width: 8),
                           IconButton.filled(
@@ -1288,7 +1485,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   )
-                                : const Icon(LucideIcons.image, size: 22),
+                                : const Icon(
+                                    LucideIcons.image,
+                                    size: AppIconSize.toolbar,
+                                  ),
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -1299,7 +1499,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             foregroundColor: theme.colorScheme.onSurface,
                           ),
                           tooltip: 'Add item',
-                          icon: const Icon(Icons.add, size: 22),
+                          icon: const Icon(
+                            Icons.add,
+                            size: AppIconSize.toolbar,
+                          ),
                         ),
                       ],
                     ),
@@ -1316,7 +1519,10 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                             foregroundColor: theme.colorScheme.onSurface,
                           ),
                           tooltip: 'Back',
-                          icon: const Icon(LucideIcons.chevron_left, size: 22),
+                          icon: const Icon(
+                            LucideIcons.chevron_left,
+                            size: AppIconSize.toolbar,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(

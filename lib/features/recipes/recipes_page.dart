@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../app/ui_sizes.dart';
 import '../../services/recipe_service.dart';
 import 'recipe_detail_page.dart';
 
@@ -269,11 +270,14 @@ class _RecipesPageState extends State<RecipesPage> {
                               .withValues(alpha: 0.14),
                           foregroundColor: theme.colorScheme.onSurfaceVariant,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          minimumSize: const Size(32, 32),
-                          maximumSize: const Size(32, 32),
+                          minimumSize: AppConstraints.compactButton,
+                          maximumSize: AppConstraints.compactButton,
                           padding: EdgeInsets.zero,
                         ),
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(
+                          Icons.close,
+                          size: AppIconSize.inlineAction,
+                        ),
                       ),
                     ),
                   ),
@@ -287,11 +291,14 @@ class _RecipesPageState extends State<RecipesPage> {
                           .withValues(alpha: 0.14),
                       foregroundColor: theme.colorScheme.onSurfaceVariant,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: const Size(32, 32),
-                      maximumSize: const Size(32, 32),
+                      minimumSize: AppConstraints.compactButton,
+                      maximumSize: AppConstraints.compactButton,
                       padding: EdgeInsets.zero,
                     ),
-                    icon: const Icon(Icons.search, size: 18),
+                    icon: const Icon(
+                      Icons.search,
+                      size: AppIconSize.inlineAction,
+                    ),
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -355,11 +362,14 @@ class _RecipesPageState extends State<RecipesPage> {
                                 .withValues(alpha: 0.14),
                             foregroundColor: theme.colorScheme.onSurfaceVariant,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            minimumSize: const Size(32, 32),
-                            maximumSize: const Size(32, 32),
+                            minimumSize: AppConstraints.compactButton,
+                            maximumSize: AppConstraints.compactButton,
                             padding: EdgeInsets.zero,
                           ),
-                          icon: const Icon(Icons.close, size: 18),
+                          icon: const Icon(
+                            Icons.close,
+                            size: AppIconSize.inlineAction,
+                          ),
                         ),
                       ),
                     ),
@@ -381,11 +391,14 @@ class _RecipesPageState extends State<RecipesPage> {
                             .withValues(alpha: 0.14),
                         foregroundColor: theme.colorScheme.onSurfaceVariant,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        minimumSize: const Size(32, 32),
-                        maximumSize: const Size(32, 32),
+                        minimumSize: AppConstraints.compactButton,
+                        maximumSize: AppConstraints.compactButton,
                         padding: EdgeInsets.zero,
                       ),
-                      icon: const Icon(Icons.arrow_drop_down, size: 18),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        size: AppIconSize.inlineAction,
+                      ),
                     ),
                     const SizedBox(width: 4),
                   ],

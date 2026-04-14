@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../app/ui_sizes.dart';
 import '../../services/recipe_service.dart';
 
 class RecipeDetailPage extends StatelessWidget {
@@ -47,7 +48,7 @@ class RecipeDetailPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(Icons.add, size: 18),
+              const Icon(Icons.add, size: AppIconSize.inlineAction),
               const SizedBox(width: 4),
               SizedBox(
                 width: 35,
@@ -79,8 +80,8 @@ class RecipeDetailPage extends StatelessWidget {
       ),
       foregroundColor: theme.colorScheme.onSurfaceVariant,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      minimumSize: const Size(32, 32),
-      maximumSize: const Size(32, 32),
+      minimumSize: AppConstraints.compactButton,
+      maximumSize: AppConstraints.compactButton,
       padding: EdgeInsets.zero,
     );
 
@@ -195,7 +196,10 @@ class RecipeDetailPage extends StatelessWidget {
                     child: IconButton.filled(
                       onPressed: () => Navigator.of(context).pop(),
                       style: backButtonStyle,
-                      icon: const Icon(LucideIcons.chevron_left, size: 22),
+                      icon: const Icon(
+                        LucideIcons.chevron_left,
+                        size: AppIconSize.toolbar,
+                      ),
                     ),
                   ),
                 ),

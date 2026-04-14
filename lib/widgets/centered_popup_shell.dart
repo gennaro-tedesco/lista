@@ -8,14 +8,13 @@ class CenteredPopupShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: 320,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(28),
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(28),
+      child: SizedBox(
+        width: 320,
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
       ),
-      child: child,
     );
   }
 }
