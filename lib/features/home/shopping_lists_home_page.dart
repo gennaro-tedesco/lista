@@ -559,7 +559,6 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       ),
     );
     _run(listRepository.saveList(list));
-    setState(() {});
   }
 
   Future<void> _openTemplates() async {

@@ -22,8 +22,10 @@ import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
 import '../../widgets/template_saved_toast.dart';
+import '../../widgets/note_sheet.dart';
 import '../../widgets/recording_overlay.dart';
 import '../../widgets/voice_confirmation_sheet.dart';
+import '../../services/note_service.dart';
 
 const _uuid = Uuid();
 
@@ -78,10 +80,13 @@ class _CreateListPageState extends State<CreateListPage>
   late Offset _fishPosition;
   late Offset _penguinPosition;
   late bool _fishStartsFirst;
+  late final String _draftListId;
+  double _noteIconTurns = 0.0;
 
   @override
   void initState() {
     super.initState();
+    _draftListId = _uuid.v4();
     _randomizeEmptyState();
     _fishController = AnimationController(
       duration: const Duration(milliseconds: 5600),
@@ -377,7 +382,7 @@ class _CreateListPageState extends State<CreateListPage>
   }
 
   ShoppingList _buildListResult() => ShoppingList(
-    id: _sharedDraftList?.id ?? _uuid.v4(),
+    id: _sharedDraftList?.id ?? _draftListId,
     date: _selectedDate,
     labels: _sharedDraftList?.labels,
     isCompleted: _sharedDraftList?.isCompleted ?? false,
@@ -388,6 +393,22 @@ class _CreateListPageState extends State<CreateListPage>
 
   void _popWithCurrentList() {
     Navigator.pop(context, _items.isEmpty ? null : _buildListResult());
+  }
+
+  Future<void> _openNotePanel() async {
+    final initial = await NoteService.getNote(_draftListId) ?? '';
+    if (!mounted) return;
+    setState(() => _noteIconTurns += 1.0);
+    final saved = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => NoteSheet(initialText: initial),
+    );
+    if (!mounted) return;
+    setState(() => _noteIconTurns += 1.0);
+    if (saved != null) {
+      await NoteService.saveNote(_draftListId, saved);
+    }
   }
 
   Future<void> _showBackConfirmation() async {
@@ -913,9 +934,33 @@ class _CreateListPageState extends State<CreateListPage>
                             child: ListView(
                               controller: _scrollController,
                               children: [
-                                const SizedBox(height: 41),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    8,
+                                    8,
+                                    8,
+                                    0,
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: IconButton(
+                                      onPressed: _openNotePanel,
+                                      tooltip: 'Note',
+                                      color: theme.colorScheme.onSurface,
+                                      icon: AnimatedRotation(
+                                        turns: _noteIconTurns,
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        child: const Icon(
+                                          LucideIcons.notepad_text,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                                 if (_items.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
                                   for (final entry in groupedItems(
                                     _items,
                                   ).entries)

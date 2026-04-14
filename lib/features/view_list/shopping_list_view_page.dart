@@ -20,10 +20,12 @@ import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
+import '../../widgets/note_sheet.dart';
 import '../../widgets/recording_overlay.dart';
 import '../../widgets/template_saved_toast.dart';
 import '../../widgets/voice_confirmation_sheet.dart';
 import '../../services/image_service.dart';
+import '../../services/note_service.dart';
 import '../../services/voice_service.dart';
 
 const _uuid = Uuid();
@@ -79,6 +81,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool _isRecording = false;
   bool _isProcessing = false;
   bool _isExtractingImage = false;
+  double _noteIconTurns = 0.0;
 
   @override
   void initState() {
@@ -127,6 +130,22 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
   bool get _canSaveTemplate =>
       widget.list.items.isNotEmpty &&
       !_templateSignatures.contains(signatureFromItems(widget.list.items));
+
+  Future<void> _openNotePanel() async {
+    final initial = await NoteService.getNote(widget.list.id) ?? '';
+    if (!mounted) return;
+    setState(() => _noteIconTurns += 1.0);
+    final saved = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => NoteSheet(initialText: initial),
+    );
+    if (!mounted) return;
+    setState(() => _noteIconTurns += 1.0);
+    if (saved != null) {
+      await NoteService.saveNote(widget.list.id, saved);
+    }
+  }
 
   Future<void> _loadShareState() async {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -1126,7 +1145,27 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                           child: ListView(
                             controller: _scrollController,
                             children: [
-                              const SizedBox(height: 41),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: IconButton(
+                                    onPressed: _openNotePanel,
+                                    tooltip: 'Note',
+                                    color: theme.colorScheme.onSurface,
+                                    icon: AnimatedRotation(
+                                      turns: _noteIconTurns,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      child: const Icon(
+                                        LucideIcons.notepad_text,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               if (items.isNotEmpty) ...[
                                 for (final entry in groupedItems(
                                   widget.list.items,
