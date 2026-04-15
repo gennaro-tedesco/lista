@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { ProviderError, provider } from './config.ts'
+import { provider } from './config.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -31,9 +31,6 @@ serve(async (req: Request) => {
       : await provider.extractItems(audioBase64)
     return reply({ items })
   } catch (err) {
-    if (err instanceof ProviderError) {
-      return reply({ error: err.code }, err.status)
-    }
     const message = err instanceof Error ? err.message : 'unknown_error'
     return reply({ error: message }, 502)
   }

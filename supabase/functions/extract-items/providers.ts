@@ -9,13 +9,17 @@ export interface VoiceProvider {
   extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]>
 }
 
-export class ProviderError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-  ) {
-    super(code)
+function _googleErrorCode(status: number, body: string): string {
+  if (status == 503 && body.includes('"status": "UNAVAILABLE"')) {
+    return 'provider_unavailable'
   }
+  if (status == 404 || body.includes('not found') || body.includes('not supported')) {
+    return 'model_not_found'
+  }
+  if (status == 429 || body.includes('RESOURCE_EXHAUSTED') || body.includes('quota')) {
+    return 'quota_exceeded'
+  }
+  return 'extraction_failed'
 }
 
 const _extractionPrompt = [
@@ -53,26 +57,6 @@ function _parseItems(content: string): RawItem[] {
   )
 }
 
-function _providerErrorForStatus(status: number): ProviderError {
-  if (status == 429 || status >= 500) {
-    return new ProviderError('model_unavailable', 503)
-  }
-  return new ProviderError('transcription_failed', 502)
-}
-
-function _providerErrorForFailure(failureCode: string): ProviderError {
-  switch (failureCode) {
-    case 'model_unavailable':
-      return new ProviderError('model_unavailable', 503)
-    case 'upstream_timeout':
-      return new ProviderError('upstream_timeout', 504)
-    case 'extraction_failed':
-      return new ProviderError('extraction_failed', 502)
-    default:
-      return new ProviderError('transcription_failed', 502)
-  }
-}
-
 // ---------------------------------------------------------------------------
 // OpenAI — Whisper (transcription) + GPT (extraction)
 // ---------------------------------------------------------------------------
@@ -88,9 +72,7 @@ export class OpenAIProvider implements VoiceProvider {
 
   async extractItems(audioBase64: string): Promise<RawItem[]> {
     const transcript = await this._transcribe(audioBase64)
-    if (!transcript.trim()) {
-      throw _providerErrorForFailure('transcription_failed')
-    }
+    if (!transcript.trim()) return []
     return this._extract(transcript)
   }
 
@@ -104,57 +86,35 @@ export class OpenAIProvider implements VoiceProvider {
     form.append('file', new Blob([bytes], { type: 'audio/m4a' }), 'audio.m4a')
     form.append('model', this.cfg.transcriptionModel)
 
-    let res: Response
-    try {
-      res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${this.cfg.apiKey}` },
-        body: form,
-        signal: AbortSignal.timeout(20000),
-      })
-    } catch (err) {
-      if (err instanceof DOMException && err.name == 'TimeoutError') {
-        throw _providerErrorForFailure('upstream_timeout')
-      }
-      throw _providerErrorForFailure('model_unavailable')
-    }
-    if (!res.ok) throw _providerErrorForStatus(res.status)
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.cfg.apiKey}` },
+      body: form,
+    })
+    if (!res.ok) throw new Error('transcription_failed')
     const { text } = await res.json()
     return text ?? ''
   }
 
   private async _extract(transcript: string): Promise<RawItem[]> {
-    let res: Response
-    try {
-      res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.cfg.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.cfg.extractionModel,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: _extractionPrompt },
-            { role: 'user', content: transcript },
-          ],
-        }),
-        signal: AbortSignal.timeout(20000),
-      })
-    } catch (err) {
-      if (err instanceof DOMException && err.name == 'TimeoutError') {
-        throw _providerErrorForFailure('upstream_timeout')
-      }
-      throw _providerErrorForFailure('model_unavailable')
-    }
-    if (!res.ok) throw _providerErrorForStatus(res.status)
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.cfg.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.cfg.extractionModel,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: _extractionPrompt },
+          { role: 'user', content: transcript },
+        ],
+      }),
+    })
+    if (!res.ok) throw new Error('extraction_failed')
     const data = await res.json()
-    try {
-      return _parseItems(data.choices?.[0]?.message?.content ?? '')
-    } catch {
-      throw _providerErrorForFailure('transcription_failed')
-    }
+    return _parseItems(data.choices?.[0]?.message?.content ?? '')
   }
 }
 
@@ -175,7 +135,7 @@ export class GoogleProvider implements VoiceProvider {
       audioBase64,
       'audio/mp4',
       _extractionPrompt,
-      'transcription_failed',
+      'empty_model_output',
     )
   }
 
@@ -184,7 +144,7 @@ export class GoogleProvider implements VoiceProvider {
       imageBase64,
       mimeType,
       _imageExtractionPrompt,
-      'extraction_failed',
+      'invalid_json',
     )
   }
 
@@ -192,59 +152,53 @@ export class GoogleProvider implements VoiceProvider {
     dataBase64: string,
     mimeType: string,
     prompt: string,
-    failureCode: string,
+    emptyResultCode: string,
   ): Promise<RawItem[]> {
-    let res: Response
-    try {
-      res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${this.cfg.model}:generateContent?key=${this.cfg.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: dataBase64,
-                    },
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.cfg.model}:generateContent?key=${this.cfg.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: dataBase64,
                   },
-                  { text: prompt },
-                ],
-              },
-            ],
-            generationConfig: {
-              response_mime_type: 'application/json',
+                },
+                { text: prompt },
+              ],
             },
-          }),
-          signal: AbortSignal.timeout(20000),
-        },
-      )
-    } catch (err) {
-      if (err instanceof DOMException && err.name == 'TimeoutError') {
-        throw _providerErrorForFailure('upstream_timeout')
-      }
-      throw _providerErrorForFailure('model_unavailable')
-    }
+          ],
+          generationConfig: {
+            response_mime_type: 'application/json',
+          },
+        }),
+      },
+    )
 
     if (!res.ok) {
       const errBody = await res.text()
       console.error('Google API error', res.status, errBody)
-      throw _providerErrorForStatus(res.status)
+      throw new Error(_googleErrorCode(res.status, errBody))
     }
 
     const data = await res.json()
     console.log('Google API response', JSON.stringify(data).slice(0, 500))
     const content: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     if (!content.trim()) {
-      throw _providerErrorForFailure(failureCode)
+      throw new Error(emptyResultCode)
     }
     try {
       return _parseItems(content)
-    } catch {
-      throw _providerErrorForFailure(failureCode)
+    } catch (err) {
+      if (emptyResultCode == 'empty_model_output') {
+        throw new Error('invalid_model_output')
+      }
+      throw err
     }
   }
 }

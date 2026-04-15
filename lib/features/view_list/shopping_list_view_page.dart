@@ -508,6 +508,16 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
                 'Could not reach the server — check your connection',
               'upstream_timeout' =>
                 'The model did not return in time — try again',
+              'provider_unavailable' =>
+                'The model is temporarily unavailable due to high demand — try again later',
+              'model_not_found' =>
+                'The configured voice model is not available',
+              'quota_exceeded' =>
+                'The voice service quota has been exceeded — try again later',
+              'empty_model_output' =>
+                'The model returned no usable result for this voice input',
+              'invalid_model_output' =>
+                'The model returned a result in an unexpected format',
               'transcription_failed' =>
                 'The model could not transcribe your voice input — try again',
               _ => 'Could not process voice input — try again',
@@ -596,6 +606,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(switch (e.code) {
+            'empty_input' => 'No image data was provided',
+            'payload_too_large' => 'The image is too large to process',
+            'unsupported_provider' =>
+              'Image extraction is not supported by the current model',
+            'unknown_error' =>
+              'An unexpected error occurred while processing the image',
             'unauthorized' =>
               'You need to sign in again to extract items from images',
             'model_unavailable' => 'Model unavailable — try again shortly',
@@ -603,6 +619,12 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               'Could not reach the server — check your connection',
             'upstream_timeout' =>
               'The model did not return in time — try again',
+            'provider_unavailable' =>
+              'The model is temporarily unavailable due to high demand — try again later',
+            'invalid_json' =>
+              'The model returned no usable result for this image',
+            'schema_mismatch' =>
+              'The model returned a result in an unexpected format',
             'extraction_failed' =>
               'The model could not extract items from the image — try again',
             _ => 'Could not process the image — try again',
