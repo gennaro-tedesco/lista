@@ -540,13 +540,19 @@ class _CreateListPageState extends State<CreateListPage>
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              e.code == 'no_audio'
-                  ? 'No audio recorded — try speaking for longer'
-                  : e.code == 'too_quiet'
-                  ? 'No sound detected — speak louder'
-                  : 'Could not reach the server — check your connection',
-            ),
+            content: Text(switch (e.code) {
+              'no_audio' => 'No audio recorded — try speaking for longer',
+              'too_quiet' => 'No sound detected — speak louder',
+              'unauthorized' => 'You need to sign in again to use voice input',
+              'model_unavailable' => 'Model unavailable — try again shortly',
+              'server_unreachable' =>
+                'Could not reach the server — check your connection',
+              'upstream_timeout' =>
+                'The model did not return in time — try again',
+              'transcription_failed' =>
+                'The model could not transcribe your voice input — try again',
+              _ => 'Could not process voice input — try again',
+            }),
           ),
         );
         return;
@@ -629,7 +635,18 @@ class _CreateListPageState extends State<CreateListPage>
       setState(() => _isExtractingImage = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not extract items from the image: ${e.code}'),
+          content: Text(switch (e.code) {
+            'unauthorized' =>
+              'You need to sign in again to extract items from images',
+            'model_unavailable' => 'Model unavailable — try again shortly',
+            'server_unreachable' =>
+              'Could not reach the server — check your connection',
+            'upstream_timeout' =>
+              'The model did not return in time — try again',
+            'extraction_failed' =>
+              'The model could not extract items from the image — try again',
+            _ => 'Could not process the image — try again',
+          }),
         ),
       );
       return;

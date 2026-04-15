@@ -50,6 +50,7 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Minced Meat', category: 'Meat'),
   FoodSuggestion(name: 'Milk', category: 'Dairy'),
   FoodSuggestion(name: 'Mushrooms', category: 'Vegetable'),
+  FoodSuggestion(name: 'Nutmeg', category: 'Spices'),
   FoodSuggestion(name: 'Oats', category: 'Bakery'),
   FoodSuggestion(name: 'Olive Oil', category: 'Pantry'),
   FoodSuggestion(name: 'Orange Juice', category: 'Drinks'),

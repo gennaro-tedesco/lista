@@ -1,5 +1,6 @@
 import '../data/food_suggestions_data.dart';
 import '../models/food_suggestion.dart';
+import '../utils/category_utils.dart';
 
 class SuggestionService {
   static List<FoodSuggestion> getSuggestions(String query, {int limit = 6}) {
@@ -54,16 +55,58 @@ class SuggestionService {
         }
       }
     }
-    return best?.category;
+
+    if (best != null) {
+      return best.category;
+    }
+
+    for (final category in kCategoryOrder) {
+      final lowerCategory = category.toLowerCase();
+      final normalizedCategory = _normalize(lowerCategory);
+      if (lowerCategory == query || normalizedCategory == normalizedQuery) {
+        return category;
+      }
+      if (_containsWord(query, lowerCategory) ||
+          _containsWord(normalizedQuery, normalizedCategory) ||
+          _containsWord(lowerCategory, query) ||
+          _containsWord(normalizedCategory, normalizedQuery)) {
+        return category;
+      }
+    }
+
+    return null;
   }
 
   static bool _containsWord(String text, String word) {
-    final idx = text.indexOf(word);
-    if (idx == -1) return false;
-    final before = idx == 0 || text[idx - 1] == ' ';
-    final after =
-        idx + word.length == text.length || text[idx + word.length] == ' ';
-    return before && after;
+    final textParts = _splitWords(text);
+    final wordParts = _splitWords(word);
+    if (textParts.isEmpty ||
+        wordParts.isEmpty ||
+        wordParts.length > textParts.length) {
+      return false;
+    }
+
+    for (var index = 0; index <= textParts.length - wordParts.length; index++) {
+      var matches = true;
+      for (var offset = 0; offset < wordParts.length; offset++) {
+        if (textParts[index + offset] != wordParts[offset]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  static List<String> _splitWords(String value) {
+    return value
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
   }
 
   static String _normalize(String value) {

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/shopping_list_item.dart';
@@ -37,19 +40,53 @@ abstract final class ExtractionService {
   static Future<List<ExtractedItem>> invokeExtractItems(
     Map<String, dynamic> body,
   ) async {
+    final response = await _invoke(body);
+    return parseItems(response.data);
+  }
+
+  static Future<FunctionResponse> _invoke(Map<String, dynamic> body) async {
     try {
-      final response = await Supabase.instance.client.functions.invoke(
+      return await Supabase.instance.client.functions.invoke(
         'extract-items',
         body: body,
       );
-      return parseItems(response.data);
     } on FunctionException catch (e) {
       final details = e.details;
-      if (details is Map<String, dynamic>) {
-        throw VoiceException(details['error']?.toString() ?? e.toString());
+      if (e.status == 401) {
+        throw const VoiceException('unauthorized');
       }
-      throw VoiceException(details?.toString() ?? e.toString());
+      if (details is Map<String, dynamic>) {
+        throw VoiceException(
+          details['error']?.toString() ?? _fallbackCodeForStatus(e.status),
+        );
+      }
+      throw VoiceException(
+        details?.toString() ?? _fallbackCodeForStatus(e.status),
+      );
+    } on SocketException {
+      throw const VoiceException('server_unreachable');
+    } on HttpException {
+      throw const VoiceException('server_unreachable');
+    } on TimeoutException {
+      throw const VoiceException('server_unreachable');
+    } catch (e) {
+      if (_isTransportException(e)) {
+        throw const VoiceException('server_unreachable');
+      }
+      rethrow;
     }
+  }
+
+  static String _fallbackCodeForStatus(int status) {
+    if (status == 401) return 'unauthorized';
+    if (status == 503) return 'model_unavailable';
+    if (status == 504) return 'upstream_timeout';
+    return 'transcription_failed';
+  }
+
+  static bool _isTransportException(Object error) {
+    final type = error.runtimeType.toString();
+    return type == 'ClientException' || type == 'FetchException';
   }
 
   static List<ExtractedItem> parseItems(Object? responseData) {

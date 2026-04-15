@@ -3,6 +3,9 @@
 APP_VERSION := $(shell tag=$$(git describe --tags --exact-match 2>/dev/null || true); if [ -n "$$tag" ]; then printf '%s' "$$tag"; else git rev-parse --short HEAD; fi)
 BUILD_NUMBER := $(shell git rev-list --count HEAD)
 
+emulator:
+	emulator -avd pixel_7 -no-snapshot-load -scale 1.5
+
 run:
 	flutter run --dart-define-from-file=config.json
 
