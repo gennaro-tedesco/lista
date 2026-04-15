@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'extraction_service.dart';
+import 'settings_service.dart';
 
 export 'extraction_service.dart' show VoiceException, ExtractedItem;
 
@@ -11,5 +12,6 @@ abstract final class ImageService {
   ) => ExtractionService.invokeExtractItems({
     'image': base64Encode(image),
     'mimeType': mimeType,
+    'provider': providerNotifier.value.name,
   });
 }

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { provider } from './config.ts'
+import { getProvider } from './config.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -16,7 +16,12 @@ serve(async (req: Request) => {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return reply({ error: 'unauthorized' }, 401)
 
-  const { audio: audioBase64, image: imageBase64, mimeType } = await req.json()
+  const {
+    audio: audioBase64,
+    image: imageBase64,
+    mimeType,
+    provider: providerName,
+  } = await req.json()
   if (!audioBase64 && !imageBase64) return reply({ error: 'empty_input' }, 400)
   if (audioBase64 && audioBase64.length > MAX_BYTES) {
     return reply({ error: 'payload_too_large' }, 413)
@@ -24,6 +29,8 @@ serve(async (req: Request) => {
   if (imageBase64 && imageBase64.length > MAX_BYTES) {
     return reply({ error: 'payload_too_large' }, 413)
   }
+
+  const provider = getProvider(providerName)
 
   try {
     const items = imageBase64

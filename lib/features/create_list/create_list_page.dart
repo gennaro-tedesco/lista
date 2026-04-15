@@ -14,6 +14,7 @@ import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
 import '../../services/image_service.dart';
+import '../../services/settings_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/action_tab_button.dart';
 import '../../widgets/add_item_input.dart';
@@ -538,29 +539,31 @@ class _CreateListPageState extends State<CreateListPage>
       } on VoiceException catch (e) {
         if (!mounted) return;
         setState(() => _isProcessing = false);
+        final provider = providerNotifier.value.displayName;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(switch (e.code) {
               'no_audio' => 'No audio recorded — try speaking for longer',
               'too_quiet' => 'No sound detected — speak louder',
               'unauthorized' => 'You need to sign in again to use voice input',
-              'model_unavailable' => 'Model unavailable — try again shortly',
+              'model_unavailable' =>
+                '$provider unavailable — try again shortly',
               'server_unreachable' =>
                 'Could not reach the server — check your connection',
               'upstream_timeout' =>
-                'The model did not return in time — try again',
+                '$provider did not return in time — try again',
               'provider_unavailable' =>
-                'The model is temporarily unavailable due to high demand — try again later',
+                '$provider is temporarily unavailable due to high demand — try again later',
               'model_not_found' =>
-                'The configured voice model is not available',
+                'The configured $provider model is not available',
               'quota_exceeded' =>
-                'The voice service quota has been exceeded — try again later',
+                '$provider quota has been exceeded — try again later',
               'empty_model_output' =>
-                'The model returned no usable result for this voice input',
+                '$provider returned no usable result for this voice input',
               'invalid_model_output' =>
-                'The model returned a result in an unexpected format',
+                '$provider returned a result in an unexpected format',
               'transcription_failed' =>
-                'The model could not transcribe your voice input — try again',
+                '$provider could not transcribe your voice input — try again',
               _ => 'Could not process voice input — try again',
             }),
           ),
@@ -643,30 +646,36 @@ class _CreateListPageState extends State<CreateListPage>
     } on VoiceException catch (e) {
       if (!mounted) return;
       setState(() => _isExtractingImage = false);
+      final provider = providerNotifier.value.displayName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(switch (e.code) {
             'empty_input' => 'No image data was provided',
             'payload_too_large' => 'The image is too large to process',
             'unsupported_provider' =>
-              'Image extraction is not supported by the current model',
+              'Image extraction is not supported by $provider',
             'unknown_error' =>
               'An unexpected error occurred while processing the image',
             'unauthorized' =>
               'You need to sign in again to extract items from images',
-            'model_unavailable' => 'Model unavailable — try again shortly',
+            'model_unavailable' =>
+              '$provider unavailable — try again shortly',
             'server_unreachable' =>
               'Could not reach the server — check your connection',
             'upstream_timeout' =>
-              'The model did not return in time — try again',
+              '$provider did not return in time — try again',
             'provider_unavailable' =>
-              'The model is temporarily unavailable due to high demand — try again later',
+              '$provider is temporarily unavailable due to high demand — try again later',
+            'model_not_found' =>
+              'The configured $provider model is not available',
+            'quota_exceeded' =>
+              '$provider quota has been exceeded — try again later',
             'invalid_json' =>
-              'The model returned no usable result for this image',
+              '$provider returned no usable result for this image',
             'schema_mismatch' =>
-              'The model returned a result in an unexpected format',
+              '$provider returned a result in an unexpected format',
             'extraction_failed' =>
-              'The model could not extract items from the image — try again',
+              '$provider could not extract items from the image — try again',
             _ => 'Could not process the image — try again',
           }),
         ),
@@ -1177,8 +1186,9 @@ class _CreateListPageState extends State<CreateListPage>
                                             ),
                                           ),
                                           IconButton(
-                                            onPressed:
-                                                _highlightedItemIds.isNotEmpty
+                                            onPressed: _items.isEmpty
+                                                ? null
+                                                : _highlightedItemIds.isNotEmpty
                                                 ? () => setState(
                                                     () => _highlightedItemIds =
                                                         {},

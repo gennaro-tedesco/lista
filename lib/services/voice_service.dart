@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'extraction_service.dart';
+import 'settings_service.dart';
 
 export 'extraction_service.dart' show VoiceException, ExtractedItem;
 
@@ -52,7 +53,10 @@ abstract final class VoiceService {
     if (maxAmp < _silenceThresholdDb) {
       throw const VoiceException('too_quiet');
     }
-    return ExtractionService.invokeExtractItems({'audio': base64Encode(bytes)});
+    return ExtractionService.invokeExtractItems({
+      'audio': base64Encode(bytes),
+      'provider': providerNotifier.value.name,
+    });
   }
 
   static Future<void> cancel() async {

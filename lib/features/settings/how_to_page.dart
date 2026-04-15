@@ -119,6 +119,7 @@ class _HowToPageState extends State<HowToPage> {
         'Tap Appearance to change theme, font size, and font.',
         'Tap How to to open the in-app usage guide.',
         'Tap Account to sign in or sign out.',
+        'When signed in, tap AI provider to choose Gemini, Mistral AI, or Groq for voice and image extraction.',
         'Tap About to view the current app version string.',
       ],
     ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'about_page.dart';
 import 'account_page.dart';
+import 'ai_provider_page.dart';
 import 'appearance_settings_page.dart';
 import 'how_to_page.dart';
 
@@ -26,6 +28,8 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSignedIn =
+        Supabase.instance.client.auth.currentUser != null;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -63,6 +67,16 @@ class SettingsPage extends StatelessWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => _openSubpage(context, const AccountPage()),
                   ),
+                  if (isSignedIn) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      visualDensity: _tileDensity,
+                      title: const Text('AI provider'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          _openSubpage(context, const AiProviderPage()),
+                    ),
+                  ],
                 ],
               ),
             ),
