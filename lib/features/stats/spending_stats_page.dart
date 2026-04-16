@@ -40,6 +40,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
   List<String> get _availableLabels {
     final values =
         widget.lists
+            .where((list) => list.isCompleted)
             .expand((list) => list.labels)
             .where((label) => label.trim().isNotEmpty)
             .toSet()

@@ -869,26 +869,38 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final controller = TextEditingController(text: code.name);
     final renamed = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'Code name'),
-          onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          IconButton(
-            onPressed: () => Navigator.pop(ctx),
-            icon: const Icon(Icons.close),
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final fillColor =
+            theme.inputDecorationTheme.fillColor ??
+            theme.colorScheme.surfaceContainerHighest;
+        final buttonStyle = IconButton.styleFrom(
+          backgroundColor: fillColor,
+          foregroundColor: theme.colorScheme.onSurface,
+        );
+        return AlertDialog(
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'Code name'),
+            onSubmitted: (value) => Navigator.pop(ctx, value.trim()),
           ),
-          IconButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            icon: const Icon(Icons.check),
-          ),
-        ],
-      ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            IconButton.filled(
+              onPressed: () => Navigator.pop(ctx),
+              style: buttonStyle,
+              icon: const Icon(LucideIcons.x, size: 22),
+            ),
+            IconButton.filled(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              style: buttonStyle,
+              icon: const Icon(LucideIcons.check, size: 22),
+            ),
+          ],
+        );
+      },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.dispose();
@@ -1526,8 +1538,15 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+    final buttonStyle = IconButton.styleFrom(
+      backgroundColor: fillColor,
+      foregroundColor: theme.colorScheme.onSurface,
+    );
     return AlertDialog(
-      title: const Text('Labels'),
       content: Builder(
         builder: (contentContext) {
           _contentContext = contentContext;
@@ -1595,24 +1614,19 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newLabelController,
-                          autofocus: true,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            hintText: 'New label',
-                          ),
-                          onSubmitted: (_) => _addNewLabel(),
-                        ),
+                  TextField(
+                    controller: _newLabelController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      hintText: 'label...',
+                      suffixIcon: Icon(
+                        LucideIcons.pencil,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.check),
-                        onPressed: _addNewLabel,
-                      ),
-                    ],
+                    ),
+                    onSubmitted: (_) => _addNewLabel(),
                   ),
                 ],
               ),
@@ -1620,6 +1634,19 @@ class _EditLabelsDialogState extends State<_EditLabelsDialog> {
           );
         },
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actions: [
+        IconButton.filled(
+          style: buttonStyle,
+          icon: const Icon(LucideIcons.x, size: 22),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        IconButton.filled(
+          style: buttonStyle,
+          icon: const Icon(LucideIcons.check, size: 22),
+          onPressed: _addNewLabel,
+        ),
+      ],
     );
   }
 }
