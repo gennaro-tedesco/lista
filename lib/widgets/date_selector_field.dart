@@ -129,12 +129,13 @@ class _DateSelectorFieldState extends State<DateSelectorField> {
                 child: Text(
                   _formatDate(widget.selectedDate),
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              const SizedBox(width: 18),
             ],
           ),
         ),
