@@ -14,6 +14,7 @@ import '../../services/suggestion_service.dart';
 import '../../utils/category_utils.dart';
 import '../../utils/template_utils.dart';
 import '../../services/image_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/settings_service.dart';
 import '../../services/voice_service.dart';
 import '../../widgets/action_tab_button.dart';
@@ -23,7 +24,6 @@ import '../../widgets/centered_popup_shell.dart';
 import '../../widgets/edit_item_dialog.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/shopping_list_item_tile.dart';
-import '../../widgets/template_saved_toast.dart';
 import '../../widgets/note_sheet.dart';
 import '../../widgets/recording_overlay.dart';
 import '../../widgets/voice_confirmation_sheet.dart';
@@ -422,16 +422,7 @@ class _CreateListPageState extends State<CreateListPage>
   }
 
   void _showNoResultsPopup() {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        Future.delayed(const Duration(seconds: 1), () {
-          if (ctx.mounted) Navigator.of(ctx).pop();
-        });
-        return const AlertDialog(title: Text('No results'));
-      },
-    );
+    NotificationService.showInfo('No results');
   }
 
   void _toggleSearch() {
@@ -542,54 +533,42 @@ class _CreateListPageState extends State<CreateListPage>
         if (!mounted) return;
         setState(() => _isProcessing = false);
         final provider = providerNotifier.value.displayName;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(switch (e.code) {
-              'no_audio' => 'No audio recorded — try speaking for longer',
-              'too_quiet' => 'No sound detected — speak louder',
-              'unauthorized' => 'You need to sign in again to use voice input',
-              'model_unavailable' =>
-                '$provider unavailable — try again shortly',
-              'server_unreachable' =>
-                'Could not reach the server — check your connection',
-              'upstream_timeout' =>
-                '$provider did not return in time — try again',
-              'provider_unavailable' =>
-                '$provider is temporarily unavailable due to high demand — try again later',
-              'model_not_found' =>
-                'The configured $provider model is not available',
-              'quota_exceeded' =>
-                '$provider quota has been exceeded — try again later',
-              'empty_model_output' =>
-                '$provider returned no usable result for this voice input',
-              'invalid_model_output' =>
-                '$provider returned a result in an unexpected format',
-              'transcription_failed' =>
-                '$provider could not transcribe your voice input — try again',
-              _ => 'Could not process voice input — try again',
-            }),
-          ),
-        );
+        NotificationService.showError(switch (e.code) {
+          'no_audio' => 'No audio recorded — try speaking for longer',
+          'too_quiet' => 'No sound detected — speak louder',
+          'unauthorized' => 'You need to sign in again to use voice input',
+          'model_unavailable' => '$provider unavailable — try again shortly',
+          'server_unreachable' =>
+            'Could not reach the server — check your connection',
+          'upstream_timeout' => '$provider did not return in time — try again',
+          'provider_unavailable' =>
+            '$provider is temporarily unavailable due to high demand — try again later',
+          'model_not_found' =>
+            'The configured $provider model is not available',
+          'quota_exceeded' =>
+            '$provider quota has been exceeded — try again later',
+          'empty_model_output' =>
+            '$provider returned no usable result for this voice input',
+          'invalid_model_output' =>
+            '$provider returned a result in an unexpected format',
+          'transcription_failed' =>
+            '$provider could not transcribe your voice input — try again',
+          _ => 'Could not process voice input — try again',
+        });
         return;
       } catch (_) {
         if (!mounted) return;
         setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not reach the server — check your connection'),
-          ),
+        NotificationService.showError(
+          'Could not reach the server — check your connection',
         );
         return;
       }
       if (!mounted) return;
       setState(() => _isProcessing = false);
       if (extracted.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No shopping items recognised — try speaking more clearly',
-            ),
-          ),
+        NotificationService.showInfo(
+          'No shopping items recognised — try speaking more clearly',
         );
         return;
       }
@@ -649,58 +628,45 @@ class _CreateListPageState extends State<CreateListPage>
       if (!mounted) return;
       setState(() => _isExtractingImage = false);
       final provider = providerNotifier.value.displayName;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(switch (e.code) {
-            'empty_input' => 'No image data was provided',
-            'payload_too_large' => 'The image is too large to process',
-            'unsupported_provider' =>
-              'Image extraction is not supported by $provider',
-            'unknown_error' =>
-              'An unexpected error occurred while processing the image',
-            'unauthorized' =>
-              'You need to sign in again to extract items from images',
-            'model_unavailable' => '$provider unavailable — try again shortly',
-            'server_unreachable' =>
-              'Could not reach the server — check your connection',
-            'upstream_timeout' =>
-              '$provider did not return in time — try again',
-            'provider_unavailable' =>
-              '$provider is temporarily unavailable due to high demand — try again later',
-            'model_not_found' =>
-              'The configured $provider model is not available',
-            'quota_exceeded' =>
-              '$provider quota has been exceeded — try again later',
-            'invalid_json' =>
-              '$provider returned no usable result for this image',
-            'schema_mismatch' =>
-              '$provider returned a result in an unexpected format',
-            'extraction_failed' =>
-              '$provider could not extract items from the image — try again',
-            _ => 'Could not process the image — try again',
-          }),
-        ),
-      );
+      NotificationService.showError(switch (e.code) {
+        'empty_input' => 'No image data was provided',
+        'payload_too_large' => 'The image is too large to process',
+        'unsupported_provider' =>
+          'Image extraction is not supported by $provider',
+        'unknown_error' =>
+          'An unexpected error occurred while processing the image',
+        'unauthorized' =>
+          'You need to sign in again to extract items from images',
+        'model_unavailable' => '$provider unavailable — try again shortly',
+        'server_unreachable' =>
+          'Could not reach the server — check your connection',
+        'upstream_timeout' => '$provider did not return in time — try again',
+        'provider_unavailable' =>
+          '$provider is temporarily unavailable due to high demand — try again later',
+        'model_not_found' => 'The configured $provider model is not available',
+        'quota_exceeded' =>
+          '$provider quota has been exceeded — try again later',
+        'invalid_json' => '$provider returned no usable result for this image',
+        'schema_mismatch' =>
+          '$provider returned a result in an unexpected format',
+        'extraction_failed' =>
+          '$provider could not extract items from the image — try again',
+        _ => 'Could not process the image — try again',
+      });
       return;
     } catch (_) {
       if (!mounted) return;
       setState(() => _isExtractingImage = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not extract items from the image — check your connection',
-          ),
-        ),
+      NotificationService.showError(
+        'Could not extract items from the image — check your connection',
       );
       return;
     }
     if (!mounted) return;
     setState(() => _isExtractingImage = false);
     if (extracted.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No shopping items recognised — try a clearer image'),
-        ),
+      NotificationService.showInfo(
+        'No shopping items recognised — try a clearer image',
       );
       return;
     }
@@ -764,7 +730,7 @@ class _CreateListPageState extends State<CreateListPage>
     setState(() {
       _templateSignatures.add(signatureFromItems(_items));
     });
-    showTemplateSavedToast(context, name);
+    NotificationService.showInfo('Saved $name as template!');
   }
 
   Future<void> _shareCurrentList() async {

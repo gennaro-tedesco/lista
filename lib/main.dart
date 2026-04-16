@@ -6,6 +6,7 @@ import 'features/home/shopping_lists_home_page.dart';
 import 'repositories/list_repository.dart';
 import 'repositories/local_list_repository.dart';
 import 'repositories/supabase_list_repository.dart';
+import 'services/notification_service.dart';
 import 'services/settings_service.dart';
 
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
@@ -48,6 +49,7 @@ class ListaApp extends StatelessWidget {
         );
         return MaterialApp(
           title: 'Lista',
+          scaffoldMessengerKey: NotificationService.messengerKey,
           theme: theme,
           darkTheme: appFontNotifier.value.apply(
             AppThemes.systemDark(fontScale: uiFontScaleNotifier.value),

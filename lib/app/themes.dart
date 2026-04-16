@@ -241,7 +241,7 @@ class AppThemes {
           secondary: const Color(0xFF2AA198),
           text: const Color(0xFFE5E9F0),
           subtext: const Color(0xFFD8DEE9),
-          error: const Color(0xFFd11c24),
+          error: const Color(0xFFf6534f),
           outline: const Color(0xFF184C52),
         ),
         AppThemeOption.solarizedLight => _build(
@@ -255,7 +255,7 @@ class AppThemes {
           secondary: const Color(0xFF2AA198),
           text: const Color(0xFF657B83),
           subtext: const Color(0xFF839496),
-          error: const Color(0xFFDC322F),
+          error: const Color(0xFFf6534f),
           outline: const Color(0xFFD0C9B6),
         ),
       };

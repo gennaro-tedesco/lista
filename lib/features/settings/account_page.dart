@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../repositories/list_repository.dart';
 import '../../repositories/supabase_list_repository.dart';
 import '../../repositories/local_list_repository.dart';
+import '../../services/notification_service.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -39,9 +40,7 @@ class _AccountPageState extends State<AccountPage> {
       if (mounted) Navigator.pop(context);
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        NotificationService.showError(e.message);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
