@@ -14,6 +14,7 @@ const List<FoodSuggestion> foodSuggestions = [
   FoodSuggestion(name: 'Bread', category: 'Bakery'),
   FoodSuggestion(name: 'Broccoli', category: 'Vegetable'),
   FoodSuggestion(name: 'Butter', category: 'Dairy'),
+  FoodSuggestion(name: 'Body cream', category: 'Toiletry'),
   FoodSuggestion(name: 'Carrots', category: 'Vegetable'),
   FoodSuggestion(name: 'Cauliflower', category: 'Vegetable'),
   FoodSuggestion(name: 'Celery', category: 'Vegetable'),

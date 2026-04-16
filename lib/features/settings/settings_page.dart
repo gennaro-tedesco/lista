@@ -28,8 +28,7 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSignedIn =
-        Supabase.instance.client.auth.currentUser != null;
+    final isSignedIn = Supabase.instance.client.auth.currentUser != null;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),

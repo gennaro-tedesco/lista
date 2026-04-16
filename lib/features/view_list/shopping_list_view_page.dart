@@ -618,8 +618,7 @@ class _ShoppingListViewPageState extends State<ShoppingListViewPage> {
               'An unexpected error occurred while processing the image',
             'unauthorized' =>
               'You need to sign in again to extract items from images',
-            'model_unavailable' =>
-              '$provider unavailable — try again shortly',
+            'model_unavailable' => '$provider unavailable — try again shortly',
             'server_unreachable' =>
               'Could not reach the server — check your connection',
             'upstream_timeout' =>

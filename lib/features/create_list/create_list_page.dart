@@ -67,6 +67,8 @@ class _CreateListPageState extends State<CreateListPage>
   bool _isRecording = false;
   bool _isProcessing = false;
   bool _isExtractingImage = false;
+  static const _emojiFish = '🐟';
+  static const _emojiPenguin = '🐧';
   static const _edgeScrollThreshold = 80.0;
   static const _edgeScrollSpeed = 400.0;
   static const _edgeScrollInterval = Duration(milliseconds: 16);
@@ -658,8 +660,7 @@ class _CreateListPageState extends State<CreateListPage>
               'An unexpected error occurred while processing the image',
             'unauthorized' =>
               'You need to sign in again to extract items from images',
-            'model_unavailable' =>
-              '$provider unavailable — try again shortly',
+            'model_unavailable' => '$provider unavailable — try again shortly',
             'server_unreachable' =>
               'Could not reach the server — check your connection',
             'upstream_timeout' =>
@@ -1279,7 +1280,7 @@ class _CreateListPageState extends State<CreateListPage>
                                                           ? leadOpacity
                                                           : followOpacity,
                                                       child: Text(
-                                                        '🐟',
+                                                        _emojiFish,
                                                         style: theme
                                                             .textTheme
                                                             .displayMedium,
@@ -1306,7 +1307,7 @@ class _CreateListPageState extends State<CreateListPage>
                                                           ? followOpacity
                                                           : leadOpacity,
                                                       child: Text(
-                                                        '🐧',
+                                                        _emojiPenguin,
                                                         style: theme
                                                             .textTheme
                                                             .displayMedium,

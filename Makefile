@@ -19,7 +19,7 @@ install_android:
 	adb install build/app/outputs/flutter-apk/app-release.apk
 
 install_ios:
-	ideviceinstaller -i build/ios/ipa/*.ipa
+	ideviceinstaller install build/ios/ipa/*.ipa
 
 supabase_deploy:
 	@if [ ! -f "supabase/.temp/project-ref" ]; then echo "supabase/.temp/project-ref not found"; exit 1; fi
