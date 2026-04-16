@@ -5,6 +5,7 @@ import '../../widgets/gradient_text.dart';
 import 'dart:math' as math;
 import '../../models/shopping_list.dart';
 import '../../services/spending_stats_service.dart';
+import '../../utils/label_colors.dart';
 import '../../widgets/date_selector_field.dart';
 
 class SpendingStatsPage extends StatefulWidget {
@@ -19,14 +20,28 @@ class SpendingStatsPage extends StatefulWidget {
 class _SpendingStatsPageState extends State<SpendingStatsPage> {
   late DateTime _startDate;
   late String? _selectedCurrency;
+  late Set<String> _selectedLabels;
   GroupBy _groupBy = GroupBy.none;
+  final _labelKey = GlobalKey();
   final _currencyKey = GlobalKey();
+  OverlayEntry? _labelOverlay;
 
   List<String> get _currencies {
     final values =
         widget.lists
             .where((list) => list.isCompleted && list.totalPrice != null)
             .map((list) => list.currencySymbol)
+            .toSet()
+            .toList()
+          ..sort();
+    return values;
+  }
+
+  List<String> get _availableLabels {
+    final values =
+        widget.lists
+            .expand((list) => list.labels)
+            .where((label) => label.trim().isNotEmpty)
             .toSet()
             .toList()
           ..sort();
@@ -50,6 +65,33 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
             completedDates.first.day,
           );
     _selectedCurrency = _currencies.isEmpty ? null : _currencies.first;
+    _selectedLabels = _availableLabels.toSet();
+  }
+
+  @override
+  void didUpdateWidget(covariant SpendingStatsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldLabels = oldWidget.lists
+        .expand((list) => list.labels)
+        .where((label) => label.trim().isNotEmpty)
+        .toSet();
+    final newLabels = _availableLabels.toSet();
+    final hadAllSelected = _selectedLabels.length == oldLabels.length;
+    _selectedLabels = _selectedLabels.intersection(newLabels);
+    if (hadAllSelected) {
+      _selectedLabels = newLabels;
+    } else {
+      _selectedLabels.addAll(newLabels.difference(oldLabels));
+    }
+    if (_selectedCurrency != null && !_currencies.contains(_selectedCurrency)) {
+      _selectedCurrency = _currencies.isEmpty ? null : _currencies.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeLabelOverlay();
+    super.dispose();
   }
 
   String _formatAmount(double value, String currencySymbol) {
@@ -295,6 +337,173 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
     );
   }
 
+  Color _labelColor(String label) => labelColor(label);
+
+  Widget _buildFilterButton({
+    required Key key,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: fillColor,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  void _removeLabelOverlay() {
+    _labelOverlay?.remove();
+    _labelOverlay = null;
+  }
+
+  String _selectedLabelSummary(List<String> availableLabels) {
+    if (availableLabels.isEmpty ||
+        _selectedLabels.length == availableLabels.length) {
+      return 'All tags';
+    }
+    if (_selectedLabels.isEmpty) {
+      return 'No tags';
+    }
+    if (_selectedLabels.length == 1) {
+      return _selectedLabels.first;
+    }
+    return '${_selectedLabels.length} tags';
+  }
+
+  void _toggleLabelSelection(String label) {
+    setState(() {
+      if (_selectedLabels.contains(label)) {
+        _selectedLabels.remove(label);
+      } else {
+        _selectedLabels.add(label);
+      }
+    });
+    _labelOverlay?.markNeedsBuild();
+  }
+
+  void _openLabelMenu() {
+    if (_labelOverlay != null) {
+      _removeLabelOverlay();
+      return;
+    }
+
+    final box = _labelKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final fieldSize = box.size;
+    final theme = Theme.of(context);
+    final fillColor =
+        theme.inputDecorationTheme.fillColor ??
+        theme.colorScheme.surfaceContainerHighest;
+    final availableLabels = _availableLabels;
+    final menuWidth = fieldSize.width;
+    final menuHeight = math.min(280.0, availableLabels.length * 36.0 + 16.0);
+    const gap = 6.0;
+
+    double top = offset.dy + fieldSize.height + gap;
+    if (top + menuHeight > overlay.size.height - 8) {
+      top = offset.dy - menuHeight - gap;
+    }
+
+    double left = offset.dx;
+    if (left + menuWidth > overlay.size.width - 8) {
+      left = overlay.size.width - menuWidth - 8;
+    }
+    left = left.clamp(8.0, overlay.size.width - menuWidth - 8);
+
+    _labelOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _removeLabelOverlay,
+            ),
+          ),
+          Positioned(
+            top: top,
+            left: left,
+            width: menuWidth,
+            child: Material(
+              color: fillColor,
+              elevation: 8,
+              borderRadius: BorderRadius.circular(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: menuHeight),
+                child: ListView(
+                  padding: const EdgeInsets.all(10),
+                  shrinkWrap: true,
+                  children: [
+                    for (final label in availableLabels)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: GestureDetector(
+                            onTap: () => _toggleLabelSelection(label),
+                            child: Builder(
+                              builder: (context) {
+                                final selected = _selectedLabels.contains(
+                                  label,
+                                );
+                                final color = _labelColor(label);
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? color
+                                        : color.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: color,
+                                      width: 1.25,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: selected ? Colors.white : color,
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_labelOverlay!);
+  }
+
   Future<void> _openCurrencyMenu() async {
     final renderBox =
         _currencyKey.currentContext?.findRenderObject() as RenderBox?;
@@ -326,6 +535,7 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
         theme.inputDecorationTheme.fillColor ??
         theme.colorScheme.surfaceContainerHighest;
     final currencies = _currencies;
+    final availableLabels = _availableLabels;
     final selectedCurrency =
         _selectedCurrency ?? (currencies.isEmpty ? null : currencies.first);
     final stats = selectedCurrency == null
@@ -334,14 +544,12 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
             widget.lists,
             startDate: _startDate,
             currencySymbol: selectedCurrency,
+            selectedLabels: _selectedLabels.length == availableLabels.length
+                ? null
+                : _selectedLabels,
             groupBy: _groupBy,
           );
     final currentCurrency = selectedCurrency ?? '';
-
-    final labelStyle = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    const labelWidth = 48.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -365,52 +573,75 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: labelWidth,
-                      child: Text('From', style: labelStyle),
+                    Expanded(
+                      flex: 4,
+                      child: DateSelectorField(
+                        selectedDate: _startDate,
+                        onDateSelected: (value) =>
+                            setState(() => _startDate = value),
+                      ),
                     ),
-                    DateSelectorField(
-                      selectedDate: _startDate,
-                      onDateSelected: (value) =>
-                          setState(() => _startDate = value),
-                    ),
-                    const Spacer(),
+                    if (availableLabels.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 4,
+                        child: _buildFilterButton(
+                          key: _labelKey,
+                          onTap: _openLabelMenu,
+                          child: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.tags,
+                                size: 11,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  _selectedLabelSummary(availableLabels),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              Icon(
+                                LucideIcons.chevron_down,
+                                size: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     if (currencies.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      SizedBox(
-                        width: 62,
-                        child: InkWell(
+                      Expanded(
+                        flex: 2,
+                        child: _buildFilterButton(
                           key: _currencyKey,
                           onTap: _openCurrencyMenu,
-                          borderRadius: BorderRadius.circular(999),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              color: fillColor,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    currentCurrency,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  currentCurrency,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  const Spacer(),
-                                  Icon(
-                                    LucideIcons.chevron_down,
-                                    size: 11,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ],
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
+                              Icon(
+                                LucideIcons.chevron_down,
+                                size: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -418,35 +649,19 @@ class _SpendingStatsPageState extends State<SpendingStatsPage> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: labelWidth,
-                      child: Text('Group', style: labelStyle),
-                    ),
-                    Expanded(
-                      child: SegmentedButton<GroupBy>(
-                        segments: const [
-                          ButtonSegment(
-                            value: GroupBy.none,
-                            label: Text('None'),
-                          ),
-                          ButtonSegment(
-                            value: GroupBy.week,
-                            label: Text('Week'),
-                          ),
-                          ButtonSegment(
-                            value: GroupBy.month,
-                            label: Text('Month'),
-                          ),
-                        ],
-                        selected: {_groupBy},
-                        onSelectionChanged: (selection) =>
-                            setState(() => _groupBy = selection.first),
-                        showSelectedIcon: false,
-                      ),
-                    ),
-                  ],
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<GroupBy>(
+                    segments: const [
+                      ButtonSegment(value: GroupBy.none, label: Text('None')),
+                      ButtonSegment(value: GroupBy.week, label: Text('Week')),
+                      ButtonSegment(value: GroupBy.month, label: Text('Month')),
+                    ],
+                    selected: {_groupBy},
+                    onSelectionChanged: (selection) =>
+                        setState(() => _groupBy = selection.first),
+                    showSelectedIcon: false,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 if (stats == null || stats.listCount == 0) ...[

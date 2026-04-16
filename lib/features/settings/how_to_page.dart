@@ -37,7 +37,7 @@ class _HowToPageState extends State<HowToPage> {
         'Swipe right to left to delete a completed list if you are the owner.',
         'Tap a completed list to open it.',
         'Long press a completed list to edit labels.',
-        'Tap the stats icon to open spending statistics.',
+        'Tap the stats icon to open spending statistics and filter by date, labels, currency, and grouping.',
       ],
     ),
     (

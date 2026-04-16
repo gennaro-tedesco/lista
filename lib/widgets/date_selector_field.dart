@@ -118,7 +118,6 @@ class _DateSelectorFieldState extends State<DateSelectorField> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 LucideIcons.calendar,
@@ -126,12 +125,16 @@ class _DateSelectorFieldState extends State<DateSelectorField> {
                 color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 7),
-              Text(
-                _formatDate(widget.selectedDate),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  _formatDate(widget.selectedDate),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
+              const SizedBox(width: 18),
             ],
           ),
         ),

@@ -14,6 +14,7 @@ import '../../models/stored_code.dart';
 import '../../repositories/list_repository.dart';
 import '../../services/recipe_service.dart';
 import '../../services/suggestion_service.dart';
+import '../../utils/label_colors.dart';
 import '../../widgets/share_dialog.dart';
 import '../../widgets/gradient_text.dart';
 import '../create_list/create_list_page.dart';
@@ -55,9 +56,7 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   final List<ShoppingList> _lists = [];
   final List<ShoppingListTemplate> _templates = [];
   final List<String> _labelStore = [];
-  final Map<String, Color> _labelColorMap = {};
   final Map<String, bool> _sharedListState = {};
-  int _labelCounter = 0;
   final List<StoredCode> _codes = [];
   final ScrollController _homeScrollController = ScrollController();
   final ScrollController _historyScrollController = ScrollController();
@@ -66,17 +65,6 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
   _Tab _tab = _Tab.home;
   RealtimeChannel? _realtimeChannel;
   int _loadGeneration = 0;
-  static const _labelColors = [
-    Color(0xFFE57373),
-    Color(0xFF64B5F6),
-    Color(0xFF81C784),
-    Color(0xFFFFB74D),
-    Color(0xFFBA68C8),
-    Color(0xFF4DB6AC),
-    Color(0xFFA1887F),
-    Color(0xFF90A4AE),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -158,16 +146,10 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
     final sharedStates = Map<String, bool>.fromEntries(sharedStateResults);
     if (!mounted || generation != _loadGeneration) return;
     final nextLabelStore = <String>[];
-    final nextLabelColorMap = <String, Color>{};
-    var nextLabelCounter = 0;
 
     for (final label in labels) {
       if (!nextLabelStore.contains(label)) {
-        nextLabelColorMap[label] =
-            _labelColorMap[label] ??
-            _labelColors[nextLabelCounter % _labelColors.length];
         nextLabelStore.add(label);
-        nextLabelCounter++;
       }
     }
 
@@ -181,13 +163,9 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
       _labelStore
         ..clear()
         ..addAll(nextLabelStore);
-      _labelColorMap
-        ..clear()
-        ..addAll(nextLabelColorMap);
       _sharedListState
         ..clear()
         ..addAll(sharedStates);
-      _labelCounter = nextLabelCounter;
       _codes
         ..clear()
         ..addAll(codes);
@@ -314,15 +292,11 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
 
   void _addLabel(String label) {
     if (!_labelStore.contains(label)) {
-      _labelColorMap[label] = _labelColors[_labelCounter % _labelColors.length];
       _labelStore.add(label);
-      _labelCounter++;
     }
   }
 
-  Color _labelColor(String label) =>
-      _labelColorMap[label] ??
-      _labelColors[label.hashCode.abs() % _labelColors.length];
+  Color _labelColor(String label) => labelColor(label);
 
   Widget _buildListCard(BuildContext context, ShoppingList list) {
     final theme = Theme.of(context);
@@ -748,7 +722,6 @@ class _ShoppingListsHomePageState extends State<ShoppingListsHomePage> {
         onLabelDeleted: (label) {
           setState(() {
             _labelStore.remove(label);
-            _labelColorMap.remove(label);
             for (final list in _lists) {
               list.labels.remove(label);
             }

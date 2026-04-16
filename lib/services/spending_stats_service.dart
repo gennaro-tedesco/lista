@@ -38,11 +38,16 @@ class SpendingStatsService {
     List<ShoppingList> lists, {
     required DateTime startDate,
     required String currencySymbol,
+    Set<String>? selectedLabels,
     GroupBy groupBy = GroupBy.month,
   }) {
     final filtered = lists.where((list) {
       if (!list.isCompleted) return false;
       if (list.currencySymbol != currencySymbol) return false;
+      if (selectedLabels != null) {
+        if (selectedLabels.isEmpty) return false;
+        if (!list.labels.any(selectedLabels.contains)) return false;
+      }
       if (list.date.isBefore(
         DateTime(startDate.year, startDate.month, startDate.day),
       )) {
