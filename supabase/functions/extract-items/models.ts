@@ -1,0 +1,6 @@
+export const googleModel = 'gemini-3.1-flash-lite-preview'
+export const mistralTranscriptionModel = 'voxtral-mini-2507'
+export const mistralExtractionModel = 'mistral-large-latest'
+export const groqTranscriptionModel = 'whisper-large-v3'
+export const groqExtractionModel = 'llama-3.3-70b-versatile'
+export const groqVisionModel = 'meta-llama/llama-4-scout-17b-16e-instruct'

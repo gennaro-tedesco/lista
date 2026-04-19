@@ -4,28 +4,33 @@ import {
   MistralProvider,
   VoiceProvider,
 } from './providers.ts'
+import {
+  googleModel,
+  groqExtractionModel,
+  groqTranscriptionModel,
+  groqVisionModel,
+  mistralExtractionModel,
+  mistralTranscriptionModel,
+} from './models.ts'
 
 export type ProviderName = 'google' | 'mistral' | 'groq'
 
 const googleProvider: VoiceProvider = new GoogleProvider({
   apiKey: Deno.env.get('GOOGLE_API_KEY')!,
-  model: Deno.env.get('GOOGLE_MODEL') ?? 'gemini-3.1-flash-lite-preview',
+  model: Deno.env.get('GOOGLE_MODEL') ?? googleModel,
 })
 
 const mistralProvider: VoiceProvider = new MistralProvider({
   apiKey: Deno.env.get('MISTRAL_API_KEY')!,
-  transcriptionModel:
-    Deno.env.get('MISTRAL_TRANSCRIPTION_MODEL') ??
-    'voxtral-mini-2507',
-  extractionModel:
-    Deno.env.get('MISTRAL_EXTRACTION_MODEL') ?? 'mistral-large-latest',
+  transcriptionModel: Deno.env.get('MISTRAL_TRANSCRIPTION_MODEL') ?? mistralTranscriptionModel,
+  extractionModel: Deno.env.get('MISTRAL_EXTRACTION_MODEL') ?? mistralExtractionModel,
 })
 
 const groqProvider: VoiceProvider = new GroqProvider({
   apiKey: Deno.env.get('GROQ_API_KEY')!,
-  transcriptionModel: Deno.env.get('GROQ_TRANSCRIPTION_MODEL') ?? 'whisper-large-v3',
-  extractionModel: Deno.env.get('GROQ_EXTRACTION_MODEL') ?? 'llama-3.3-70b-versatile',
-  visionModel: Deno.env.get('GROQ_VISION_MODEL') ?? 'meta-llama/llama-4-scout-17b-16e-instruct',
+  transcriptionModel: Deno.env.get('GROQ_TRANSCRIPTION_MODEL') ?? groqTranscriptionModel,
+  extractionModel: Deno.env.get('GROQ_EXTRACTION_MODEL') ?? groqExtractionModel,
+  visionModel: Deno.env.get('GROQ_VISION_MODEL') ?? groqVisionModel,
 })
 
 export function getProvider(providerName?: string): VoiceProvider {

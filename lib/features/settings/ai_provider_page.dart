@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import '../../app/ai_models.dart';
 import '../../services/settings_service.dart';
 
 const _providerModels = {
-  AiProviderOption.google: ['gemini-2.0-flash-lite'],
-  AiProviderOption.mistral: ['voxtral-mini-2507', 'mistral-large-latest'],
-  AiProviderOption.groq: [
-    'whisper-large-v3',
-    'llama-3.3-70b-versatile',
-    'llama-4-scout-17b-16e-instruct',
-  ],
+  AiProviderOption.google: [googleModel],
+  AiProviderOption.mistral: [mistralTranscriptionModel, mistralExtractionModel],
+  AiProviderOption.groq: [groqTranscriptionModel, groqExtractionModel, groqVisionModel],
 };
 
 class AiProviderPage extends StatelessWidget {
