@@ -6,7 +6,11 @@ import '../../services/settings_service.dart';
 const _providerModels = {
   AiProviderOption.google: [googleModel],
   AiProviderOption.mistral: [mistralTranscriptionModel, mistralExtractionModel],
-  AiProviderOption.groq: [groqTranscriptionModel, groqExtractionModel, groqVisionModel],
+  AiProviderOption.groq: [
+    groqTranscriptionModel,
+    groqExtractionModel,
+    groqVisionModel,
+  ],
 };
 
 class AiProviderPage extends StatelessWidget {
