@@ -9,27 +9,6 @@ export interface VoiceProvider {
   extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]>
 }
 
-const _itemsResponseSchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    items: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          name: { type: 'string' },
-          quantity: { type: ['number', 'null'] },
-          unit: { type: ['string', 'null'] },
-        },
-        required: ['name', 'quantity', 'unit'],
-      },
-    },
-  },
-  required: ['items'],
-} as const
-
 function _googleErrorCode(status: number, body: string): string {
   if (status == 503 && body.includes('"status": "UNAVAILABLE"')) {
     return 'provider_unavailable'
@@ -43,35 +22,15 @@ function _googleErrorCode(status: number, body: string): string {
   return 'extraction_failed'
 }
 
-function _groqErrorCode(status: number, body: string): string {
+function _openRouterErrorCode(status: number, body: string): string {
   const normalized = body.toLowerCase()
-  if (status == 503 || normalized.includes('service unavailable')) {
+  if (status == 502 || status == 503 || normalized.includes('unavailable')) {
     return 'provider_unavailable'
   }
-  if (status == 404 || normalized.includes('model not found') || normalized.includes('does not exist')) {
+  if (status == 404 || normalized.includes('model not found') || normalized.includes('no endpoints')) {
     return 'model_not_found'
   }
-  if (status == 429 || normalized.includes('rate limit') || normalized.includes('quota')) {
-    return 'quota_exceeded'
-  }
-  return 'extraction_failed'
-}
-
-function _mistralErrorCode(status: number, body: string): string {
-  const normalized = body.toLowerCase()
-  if (status == 503 || normalized.includes('unavailable')) {
-    return 'provider_unavailable'
-  }
-  if (status == 404 || normalized.includes('not found') || normalized.includes('unknown model')) {
-    return 'model_not_found'
-  }
-  if (
-    status == 429 ||
-    normalized.includes('resource_exhausted') ||
-    normalized.includes('quota') ||
-    normalized.includes('billing') ||
-    normalized.includes('credit')
-  ) {
+  if (status == 402 || status == 429 || normalized.includes('quota')) {
     return 'quota_exceeded'
   }
   return 'extraction_failed'
@@ -110,23 +69,6 @@ function _parseItems(content: string): RawItem[] {
       typeof (item as Record<string, unknown>)?.name === 'string' &&
       (item as Record<string, unknown>).name !== '',
   )
-}
-
-function _messageContentToString(content: unknown): string {
-  if (typeof content == 'string') return content
-  if (content && typeof content == 'object') return JSON.stringify(content)
-  return ''
-}
-
-function _responseFormatJsonSchema() {
-  return {
-    type: 'json_schema',
-    json_schema: {
-      name: 'shopping_items',
-      strict: true,
-      schema: _itemsResponseSchema,
-    },
-  }
 }
 
 export type GoogleConfig = {
@@ -210,164 +152,40 @@ export class GoogleProvider implements VoiceProvider {
   }
 }
 
-export type MistralConfig = {
+export type OpenRouterConfig = {
   apiKey: string
-  transcriptionModel: string
-  extractionModel: string
+  model: string
 }
 
-export class MistralProvider implements VoiceProvider {
-  constructor(private readonly cfg: MistralConfig) {}
+export class OpenRouterProvider implements VoiceProvider {
+  constructor(private readonly cfg: OpenRouterConfig) {}
 
   async extractItems(audioBase64: string): Promise<RawItem[]> {
-    const transcript = await this._transcribe(audioBase64)
-    if (!transcript.trim()) {
-      throw new Error('empty_model_output')
-    }
-    return this._extractFromText(transcript)
+    return this._extract(
+      _extractionPrompt.replace('the transcript', 'the audio recording'),
+      { type: 'input_audio', input_audio: { data: audioBase64, format: 'm4a' } },
+    )
   }
 
   async extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]> {
-    const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    return this._extract(_imageExtractionPrompt, {
+      type: 'image_url',
+      image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+    })
+  }
+
+  private async _extract(prompt: string, input: Record<string, unknown>): Promise<RawItem[]> {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.cfg.apiKey}`,
         'Content-Type': 'application/json',
-        Accept: 'application/json',
+        'HTTP-Referer': 'https://github.com/gennaro-tedesco/lista',
+        'X-OpenRouter-Title': 'Lista item extraction',
       },
       body: JSON.stringify({
-        model: this.cfg.extractionModel,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: _imageExtractionPrompt },
-              {
-                type: 'image_url',
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-            ],
-          },
-        ],
-        response_format: _responseFormatJsonSchema(),
-        temperature: 0,
-      }),
-    })
-
-    if (!res.ok) {
-      const errBody = await res.text()
-      console.error('Mistral API error', res.status, errBody)
-      throw new Error(_mistralErrorCode(res.status, errBody))
-    }
-
-    const data = await res.json()
-    const content = _messageContentToString(data.choices?.[0]?.message?.content)
-    if (!content.trim()) throw new Error('empty_model_output')
-    return _parseItems(content)
-  }
-
-  private async _transcribe(audioBase64: string): Promise<string> {
-    const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0))
-    const form = new FormData()
-    form.append('file', new Blob([bytes], { type: 'audio/mp4' }), 'audio.m4a')
-    form.append('model', this.cfg.transcriptionModel)
-
-    const res = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        Accept: 'application/json',
-      },
-      body: form,
-    })
-
-    if (!res.ok) {
-      const errBody = await res.text()
-      console.error('Mistral API error', res.status, errBody)
-      throw new Error(_mistralErrorCode(res.status, errBody))
-    }
-
-    const data = await res.json()
-    return data.text ?? ''
-  }
-
-  private async _extractFromText(transcript: string): Promise<RawItem[]> {
-    const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.cfg.extractionModel,
-        messages: [
-          { role: 'system', content: _extractionPrompt },
-          { role: 'user', content: transcript },
-        ],
-        response_format: _responseFormatJsonSchema(),
-        temperature: 0,
-      }),
-    })
-
-    if (!res.ok) {
-      const errBody = await res.text()
-      console.error('Mistral API error', res.status, errBody)
-      throw new Error(_mistralErrorCode(res.status, errBody))
-    }
-
-    const data = await res.json()
-    const content = _messageContentToString(data.choices?.[0]?.message?.content)
-    if (!content.trim()) {
-      throw new Error('empty_model_output')
-    }
-    try {
-      return _parseItems(content)
-    } catch {
-      throw new Error('invalid_model_output')
-    }
-  }
-}
-
-export type GroqConfig = {
-  apiKey: string
-  transcriptionModel: string
-  extractionModel: string
-  visionModel: string
-}
-
-export class GroqProvider implements VoiceProvider {
-  constructor(private readonly cfg: GroqConfig) {}
-
-  async extractItems(audioBase64: string): Promise<RawItem[]> {
-    const transcript = await this._transcribe(audioBase64)
-    if (!transcript.trim()) {
-      throw new Error('empty_model_output')
-    }
-    return this._extractFromText(transcript)
-  }
-
-  async extractItemsFromImage(imageBase64: string, mimeType: string): Promise<RawItem[]> {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.cfg.visionModel,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: _imageExtractionPrompt },
-              {
-                type: 'image_url',
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-            ],
-          },
-        ],
+        model: this.cfg.model,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, input] }],
         response_format: { type: 'json_object' },
         temperature: 0,
       }),
@@ -375,73 +193,13 @@ export class GroqProvider implements VoiceProvider {
 
     if (!res.ok) {
       const errBody = await res.text()
-      console.error('Groq API error', res.status, errBody)
-      throw new Error(_groqErrorCode(res.status, errBody))
+      console.error('OpenRouter API error', res.status, errBody)
+      throw new Error(_openRouterErrorCode(res.status, errBody))
     }
 
     const data = await res.json()
-    const content = _messageContentToString(data.choices?.[0]?.message?.content)
+    const content: string = data.choices?.[0]?.message?.content ?? ''
     if (!content.trim()) throw new Error('empty_model_output')
     return _parseItems(content)
-  }
-
-  private async _transcribe(audioBase64: string): Promise<string> {
-    const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0))
-    const form = new FormData()
-    form.append('file', new Blob([bytes], { type: 'audio/mp4' }), 'audio.m4a')
-    form.append('model', this.cfg.transcriptionModel)
-
-    const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-      },
-      body: form,
-    })
-
-    if (!res.ok) {
-      const errBody = await res.text()
-      console.error('Groq API error', res.status, errBody)
-      throw new Error(_groqErrorCode(res.status, errBody))
-    }
-
-    const data = await res.json()
-    return data.text ?? ''
-  }
-
-  private async _extractFromText(transcript: string): Promise<RawItem[]> {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.cfg.extractionModel,
-        messages: [
-          { role: 'system', content: _extractionPrompt },
-          { role: 'user', content: transcript },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0,
-      }),
-    })
-
-    if (!res.ok) {
-      const errBody = await res.text()
-      console.error('Groq API error', res.status, errBody)
-      throw new Error(_groqErrorCode(res.status, errBody))
-    }
-
-    const data = await res.json()
-    const content = _messageContentToString(data.choices?.[0]?.message?.content)
-    if (!content.trim()) {
-      throw new Error('empty_model_output')
-    }
-    try {
-      return _parseItems(content)
-    } catch {
-      throw new Error('invalid_model_output')
-    }
   }
 }

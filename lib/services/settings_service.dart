@@ -1,16 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app/themes.dart';
+import '../app/ai_models.dart';
 
 enum AiProviderOption {
   google,
-  mistral,
-  groq;
+  openrouter;
 
   String get displayName => switch (this) {
     AiProviderOption.google => 'Gemini',
-    AiProviderOption.mistral => 'Mistral AI',
-    AiProviderOption.groq => 'Groq',
+    AiProviderOption.openrouter => 'OpenRouter 👑',
   };
 }
 
@@ -18,11 +17,26 @@ final providerNotifier = ValueNotifier<AiProviderOption>(
   AiProviderOption.google,
 );
 
+const providerModels = {
+  AiProviderOption.google: [googleModel],
+  AiProviderOption.openrouter: [qwenModel, xiaomiModel],
+};
+
+final modelNotifier = ValueNotifier<String>(qwenModel);
+
+String selectedModelFor() {
+  final models = providerModels[providerNotifier.value]!;
+  return models.contains(modelNotifier.value)
+      ? modelNotifier.value
+      : models.first;
+}
+
 abstract final class SettingsService {
   static const _keyTheme = 'theme';
   static const _keyFontScale = 'fontScale';
   static const _keyFont = 'font';
   static const _keyProvider = 'provider';
+  static const _keyModel = 'model';
 
   static Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -43,6 +57,13 @@ abstract final class SettingsService {
     }
 
     final providerName = prefs.getString(_keyProvider);
+    modelNotifier.value = prefs.getString(_keyModel) ?? qwenModel;
+    if (providerName == 'qwen' || providerName == 'xiaomi') {
+      providerNotifier.value = AiProviderOption.openrouter;
+      modelNotifier.value = providerName == 'xiaomi' ? xiaomiModel : qwenModel;
+      await prefs.setString(_keyModel, modelNotifier.value);
+      await prefs.setString(_keyProvider, providerNotifier.value.name);
+    }
     if (providerName != null) {
       final match = AiProviderOption.values.where(
         (e) => e.name == providerName,
@@ -61,6 +82,9 @@ abstract final class SettingsService {
     );
     providerNotifier.addListener(
       () => prefs.setString(_keyProvider, providerNotifier.value.name),
+    );
+    modelNotifier.addListener(
+      () => prefs.setString(_keyModel, modelNotifier.value),
     );
   }
 }

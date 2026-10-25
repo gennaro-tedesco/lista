@@ -13,5 +13,6 @@ abstract final class ImageService {
     'image': base64Encode(image),
     'mimeType': mimeType,
     'provider': providerNotifier.value.name,
+    'model': selectedModelFor(),
   });
 }

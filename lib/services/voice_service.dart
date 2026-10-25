@@ -56,6 +56,7 @@ abstract final class VoiceService {
     return ExtractionService.invokeExtractItems({
       'audio': base64Encode(bytes),
       'provider': providerNotifier.value.name,
+      'model': selectedModelFor(),
     });
   }
 

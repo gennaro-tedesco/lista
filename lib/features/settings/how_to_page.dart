@@ -119,7 +119,7 @@ class _HowToPageState extends State<HowToPage> {
         'Tap Appearance to change theme, font size, and font.',
         'Tap How to to open the in-app usage guide.',
         'Tap Account to sign in or sign out.',
-        'When signed in, tap AI provider to choose Gemini, Mistral AI, or Groq for voice and image extraction.',
+        'When signed in, tap AI provider to choose Gemini or OpenRouter for voice and image extraction. Under OpenRouter, tap a model chip to select Qwen 3.8 Omni Flash or Xiaomi MiMo V2.6 Flash and view live input/output prices per million tokens.',
         'Tap About to view the current app version string.',
       ],
     ),

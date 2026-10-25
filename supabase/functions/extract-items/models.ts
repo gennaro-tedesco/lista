@@ -1,6 +1,3 @@
 export const googleModel = 'gemini-3.1-flash-lite'
-export const mistralTranscriptionModel = 'voxtral-mini-2507'
-export const mistralExtractionModel = 'mistral-large-latest'
-export const groqTranscriptionModel = 'whisper-large-v3'
-export const groqExtractionModel = 'llama-3.3-70b-versatile'
-export const groqVisionModel = 'meta-llama/llama-4-scout-17b-16e-instruct'
+export const qwenModel = 'qwen/qwen3.8-omni-flash'
+export const xiaomiModel = 'xiaomi/mimo-v2.6-flash'

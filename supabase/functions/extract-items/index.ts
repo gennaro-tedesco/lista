@@ -21,6 +21,7 @@ serve(async (req: Request) => {
     image: imageBase64,
     mimeType,
     provider: providerName,
+    model,
   } = await req.json()
   if (!audioBase64 && !imageBase64) return reply({ error: 'empty_input' }, 400)
   if (audioBase64 && audioBase64.length > MAX_BYTES) {
@@ -30,7 +31,7 @@ serve(async (req: Request) => {
     return reply({ error: 'payload_too_large' }, 413)
   }
 
-  const provider = getProvider(providerName)
+  const provider = getProvider(providerName, model)
 
   try {
     const items = imageBase64
