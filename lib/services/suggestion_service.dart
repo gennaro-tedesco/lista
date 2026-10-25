@@ -38,8 +38,14 @@ class SuggestionService {
     final normalizedQuery = _normalize(query);
 
     for (final item in foodSuggestions) {
+      if (item.name.toLowerCase() == query) {
+        return item.category;
+      }
+    }
+
+    for (final item in foodSuggestions) {
       final name = item.name.toLowerCase();
-      if (name == query || _normalize(name) == normalizedQuery) {
+      if (_normalize(name) == normalizedQuery) {
         return item.category;
       }
     }

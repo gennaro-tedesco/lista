@@ -13,6 +13,7 @@ const List<String> kCategoryOrder = [
   'Bakery',
   'Pantry',
   'Toiletry',
+  'Household',
   'Other',
 ];
 
